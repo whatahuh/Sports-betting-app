@@ -58,7 +58,7 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.2.0-arb-action-panel"
+APP_BUILD = "4.0.0-modern-command-center"
 GIT_SHA = "b556168+"
 
 MIN_VOLUME = 5_000.0
@@ -2219,12 +2219,670 @@ def _inject_global_css() -> None:
                 flex-shrink: 0 !important;
             }
 
-            .block-container { max-width: 1100px; padding-bottom: 2rem; }
+            /* Modern command-center layer */
+            :root {
+                --pq-bg: #060812;
+                --pq-surface: rgba(15, 23, 42, 0.78);
+                --pq-surface-strong: rgba(17, 24, 39, 0.96);
+                --pq-border: rgba(148, 163, 184, 0.18);
+                --pq-muted: #94a3b8;
+                --pq-text: #f8fafc;
+                --pq-blue: #38bdf8;
+                --pq-violet: #a78bfa;
+                --pq-green: #34d399;
+                --pq-amber: #fbbf24;
+                --pq-red: #fb7185;
+            }
+
+            .stApp {
+                background:
+                    radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.22), transparent 30rem),
+                    radial-gradient(circle at 90% 8%, rgba(167, 139, 250, 0.18), transparent 28rem),
+                    linear-gradient(180deg, #060812 0%, #0b1020 42%, #060812 100%) !important;
+                color: var(--pq-text) !important;
+            }
+            .block-container {
+                max-width: 1180px !important;
+                padding: 1.1rem 1rem 2.5rem !important;
+            }
+
+            .pq-deploy-strip {
+                align-items: center;
+                background: rgba(6, 95, 70, 0.20);
+                border: 1px solid rgba(52, 211, 153, 0.32);
+                border-radius: 999px;
+                color: #a7f3d0;
+                display: inline-flex;
+                flex-wrap: wrap;
+                font-size: 0.72rem;
+                font-weight: 700;
+                gap: 0.35rem;
+                margin-bottom: 0.75rem;
+                padding: 0.34rem 0.72rem;
+            }
+            .pq-deploy-strip code {
+                color: #bae6fd;
+                font-size: 0.72rem;
+            }
+            .pq-shell-hero {
+                background:
+                    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.80)),
+                    radial-gradient(circle at 82% 20%, rgba(56, 189, 248, 0.24), transparent 22rem);
+                border: 1px solid var(--pq-border);
+                border-radius: 28px;
+                box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+                margin-bottom: 1rem;
+                overflow: hidden;
+                padding: 1.35rem;
+                position: relative;
+            }
+            .pq-shell-hero::after {
+                background: linear-gradient(90deg, rgba(56, 189, 248, 0.65), rgba(167, 139, 250, 0.55), rgba(52, 211, 153, 0.55));
+                content: "";
+                height: 3px;
+                inset: 0 0 auto;
+                position: absolute;
+            }
+            .pq-hero-grid {
+                align-items: stretch;
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.95fr);
+            }
+            .pq-hero-kicker,
+            .pq-section-kicker {
+                color: var(--pq-blue);
+                font-size: 0.72rem;
+                font-weight: 900;
+                letter-spacing: 0.12em;
+                margin: 0 0 0.4rem;
+                text-transform: uppercase;
+            }
+            .pq-hero-title {
+                color: #ffffff;
+                font-size: clamp(2.05rem, 5vw, 4.35rem);
+                font-weight: 900;
+                letter-spacing: -0.075em;
+                line-height: 0.92;
+                margin: 0;
+            }
+            .pq-hero-copy {
+                color: #cbd5e1;
+                font-size: 1.02rem;
+                line-height: 1.65;
+                margin: 1rem 0 1.15rem;
+                max-width: 760px;
+            }
+            .pq-hero-actions,
+            .pq-chip-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .pq-chip {
+                background: rgba(15, 23, 42, 0.78);
+                border: 1px solid rgba(148, 163, 184, 0.20);
+                border-radius: 999px;
+                color: #dbeafe;
+                display: inline-flex;
+                font-size: 0.78rem;
+                font-weight: 800;
+                gap: 0.35rem;
+                padding: 0.45rem 0.72rem;
+            }
+            .pq-workflow-panel {
+                background: rgba(2, 6, 23, 0.42);
+                border: 1px solid rgba(148, 163, 184, 0.16);
+                border-radius: 22px;
+                padding: 1rem;
+            }
+            .pq-workflow-title {
+                color: #ffffff;
+                font-size: 0.86rem;
+                font-weight: 900;
+                letter-spacing: 0.06em;
+                margin: 0 0 0.75rem;
+                text-transform: uppercase;
+            }
+            .pq-workflow-step {
+                align-items: flex-start;
+                display: grid;
+                gap: 0.65rem;
+                grid-template-columns: 32px minmax(0, 1fr);
+                margin-bottom: 0.78rem;
+            }
+            .pq-workflow-step:last-child {
+                margin-bottom: 0;
+            }
+            .pq-step-num {
+                align-items: center;
+                background: linear-gradient(135deg, var(--pq-blue), var(--pq-violet));
+                border-radius: 12px;
+                color: white;
+                display: flex;
+                font-size: 0.82rem;
+                font-weight: 900;
+                height: 32px;
+                justify-content: center;
+                width: 32px;
+            }
+            .pq-step-title {
+                color: #f8fafc;
+                display: block;
+                font-size: 0.88rem;
+                font-weight: 900;
+                line-height: 1.2;
+            }
+            .pq-step-copy {
+                color: var(--pq-muted);
+                display: block;
+                font-size: 0.76rem;
+                line-height: 1.45;
+                margin-top: 0.12rem;
+            }
+            .pq-toolbar {
+                align-items: end;
+                background: rgba(2, 6, 23, 0.48);
+                border: 1px solid rgba(148, 163, 184, 0.14);
+                border-radius: 20px;
+                display: grid;
+                gap: 0.8rem;
+                grid-template-columns: minmax(0, 1fr) minmax(220px, 0.32fr);
+                margin: 0.85rem 0 1rem;
+                padding: 0.8rem;
+            }
+            .pq-toolbar-label {
+                color: var(--pq-muted);
+                font-size: 0.72rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                margin: 0 0 0.38rem;
+                text-transform: uppercase;
+            }
+            .pq-section-head {
+                align-items: end;
+                display: flex;
+                gap: 1rem;
+                justify-content: space-between;
+                margin: 1rem 0 0.9rem;
+            }
+            .pq-section-title {
+                color: #ffffff;
+                font-size: clamp(1.55rem, 3.2vw, 2.25rem);
+                font-weight: 900;
+                letter-spacing: -0.05em;
+                line-height: 1;
+                margin: 0;
+            }
+            .pq-section-copy {
+                color: #a8b3c7;
+                font-size: 0.96rem;
+                line-height: 1.55;
+                margin: 0.55rem 0 0;
+                max-width: 760px;
+            }
+            .pq-section-badge {
+                background: rgba(56, 189, 248, 0.14);
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                border-radius: 999px;
+                color: #bae6fd;
+                font-size: 0.75rem;
+                font-weight: 900;
+                padding: 0.48rem 0.72rem;
+                white-space: nowrap;
+            }
+            .pq-stat-grid {
+                display: grid;
+                gap: 0.75rem;
+                grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+                margin: 0.75rem 0 1rem;
+            }
+            .pq-stat-tile {
+                background:
+                    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.70));
+                border: 1px solid rgba(148, 163, 184, 0.16);
+                border-radius: 18px;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+                min-height: 106px;
+                padding: 0.92rem;
+                position: relative;
+                overflow: hidden;
+            }
+            .pq-stat-tile::before {
+                background: var(--tile-accent, var(--pq-blue));
+                border-radius: 999px;
+                content: "";
+                filter: blur(18px);
+                height: 44px;
+                opacity: 0.22;
+                position: absolute;
+                right: -10px;
+                top: -12px;
+                width: 44px;
+            }
+            .pq-stat-tile.green { --tile-accent: var(--pq-green); }
+            .pq-stat-tile.amber { --tile-accent: var(--pq-amber); }
+            .pq-stat-tile.red { --tile-accent: var(--pq-red); }
+            .pq-stat-tile.violet { --tile-accent: var(--pq-violet); }
+            .pq-stat-label {
+                color: var(--pq-muted);
+                display: block;
+                font-size: 0.72rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                margin-bottom: 0.4rem;
+                text-transform: uppercase;
+            }
+            .pq-stat-value {
+                color: #ffffff;
+                display: block;
+                font-size: 1.42rem;
+                font-weight: 900;
+                letter-spacing: -0.04em;
+                line-height: 1.08;
+            }
+            .pq-stat-sub {
+                color: #94a3b8;
+                display: block;
+                font-size: 0.78rem;
+                font-weight: 650;
+                line-height: 1.4;
+                margin-top: 0.42rem;
+            }
+            .pq-empty-state,
+            .pq-guide-card,
+            .pq-input-card,
+            .pq-card,
+            .pq-search-hero,
+            .pq-feed-row,
+            .pq-value-card,
+            .pq-strategy-card,
+            .pq-arb-compare,
+            .pq-perf-calendar {
+                backdrop-filter: blur(18px);
+                background: var(--pq-surface) !important;
+                border: 1px solid var(--pq-border) !important;
+                border-radius: 20px !important;
+                box-shadow: 0 16px 42px rgba(0, 0, 0, 0.23);
+            }
+            .pq-empty-state,
+            .pq-guide-card {
+                padding: 1rem;
+            }
+            .pq-empty-title {
+                color: #ffffff;
+                font-size: 1rem;
+                font-weight: 900;
+                margin: 0 0 0.35rem;
+            }
+            .pq-empty-copy {
+                color: var(--pq-muted);
+                font-size: 0.88rem;
+                line-height: 1.55;
+                margin: 0;
+            }
+            .pq-value-card {
+                background:
+                    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(6, 78, 59, 0.40)) !important;
+            }
+            .pq-value-card-elite {
+                border-color: rgba(52, 211, 153, 0.70) !important;
+                box-shadow: 0 20px 56px rgba(52, 211, 153, 0.16);
+            }
+            .pq-rank-badge,
+            .pq-ev-badge {
+                background: rgba(16, 185, 129, 0.16) !important;
+                border-color: rgba(52, 211, 153, 0.50) !important;
+                color: #a7f3d0 !important;
+            }
+            .pq-cta-pill {
+                background: linear-gradient(90deg, #22c55e, #38bdf8) !important;
+                box-shadow: 0 12px 26px rgba(34, 197, 94, 0.22);
+            }
+            .pq-feed-row {
+                transition: border-color 150ms ease, transform 150ms ease;
+            }
+            .pq-feed-row:hover {
+                border-color: rgba(56, 189, 248, 0.38) !important;
+                transform: translateY(-1px);
+            }
+            .pq-feed-title,
+            .pq-event-name,
+            .pq-card-title,
+            .pq-strategy-title,
+            .pq-book-title {
+                color: #f8fafc !important;
+            }
+            .pq-feed-meta,
+            .pq-section-label,
+            .pq-book-header,
+            .pq-strategy-badge.dead {
+                color: #94a3b8 !important;
+            }
+            .pq-odd-yes {
+                background: rgba(56, 189, 248, 0.13) !important;
+                border-color: rgba(56, 189, 248, 0.32) !important;
+                color: #bae6fd !important;
+            }
+            .pq-odd-no {
+                background: rgba(167, 139, 250, 0.12) !important;
+                border-color: rgba(167, 139, 250, 0.28) !important;
+                color: #ddd6fe !important;
+            }
+            .pq-status-card {
+                border-radius: 18px;
+                font-size: 0.92rem;
+                font-weight: 800;
+                line-height: 1.5;
+                margin: 0.85rem 0;
+                padding: 1rem 1.1rem;
+            }
+            .pq-status-card.play {
+                background: rgba(5, 150, 105, 0.16);
+                border: 1px solid rgba(52, 211, 153, 0.45);
+                color: #a7f3d0;
+            }
+            .pq-status-card.warn {
+                background: rgba(245, 158, 11, 0.14);
+                border: 1px solid rgba(251, 191, 36, 0.42);
+                color: #fde68a;
+            }
+            .pq-status-card.pass {
+                background: rgba(244, 63, 94, 0.13);
+                border: 1px solid rgba(251, 113, 133, 0.42);
+                color: #fecdd3;
+            }
+            .pq-hype-board {
+                display: grid;
+                gap: 0.85rem;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                margin: 0.75rem 0 1rem;
+            }
+            .pq-hype-card {
+                background: rgba(15, 23, 42, 0.78);
+                border: 1px solid rgba(148, 163, 184, 0.16);
+                border-radius: 20px;
+                padding: 1rem;
+            }
+            .pq-hype-label {
+                color: var(--pq-muted);
+                font-size: 0.72rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                margin: 0 0 0.2rem;
+                text-transform: uppercase;
+            }
+            .pq-hype-val {
+                color: #ffffff !important;
+                font-size: 2.65rem !important;
+                letter-spacing: -0.06em;
+                margin: 0.25rem 0 0 !important;
+            }
+            [data-testid="stMetric"] {
+                background: rgba(15, 23, 42, 0.76) !important;
+                border: 1px solid rgba(148, 163, 184, 0.18) !important;
+                border-radius: 18px !important;
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+                padding: 0.9rem !important;
+            }
+            [data-testid="stDataFrame"] {
+                border: 1px solid rgba(148, 163, 184, 0.18) !important;
+                border-radius: 18px !important;
+                overflow: hidden;
+            }
+            .stTabs [data-baseweb="tab-list"] {
+                background: rgba(2, 6, 23, 0.38) !important;
+                border: 1px solid rgba(148, 163, 184, 0.14) !important;
+                border-radius: 18px;
+                gap: 4px;
+                margin-bottom: 0.95rem;
+                padding: 0.28rem !important;
+            }
+            .stTabs [data-baseweb="tab"] {
+                border-radius: 14px !important;
+                color: #94a3b8 !important;
+                font-weight: 850 !important;
+                padding: 0.65rem 0.95rem !important;
+            }
+            .stTabs [aria-selected="true"] {
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.20), rgba(167, 139, 250, 0.16)) !important;
+                border-bottom: 0 !important;
+                color: #ffffff !important;
+            }
+            .stButton > button {
+                border-radius: 14px !important;
+                min-height: 2.65rem;
+            }
+            .stButton > button[kind="primary"] {
+                background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+                border: 1px solid rgba(191, 219, 254, 0.35) !important;
+                box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
+            }
+            .stButton > button[kind="secondary"] {
+                background: rgba(15, 23, 42, 0.82) !important;
+                border: 1px solid rgba(148, 163, 184, 0.22) !important;
+                color: #e2e8f0 !important;
+            }
+            input, textarea, [data-baseweb="select"] > div {
+                border-radius: 14px !important;
+            }
+            @media (max-width: 820px) {
+                .pq-hero-grid,
+                .pq-toolbar {
+                    grid-template-columns: 1fr;
+                }
+                .pq-section-head {
+                    align-items: flex-start;
+                    flex-direction: column;
+                }
+            }
 
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def _compact_number(value: Any, *, prefix: str = "", suffix: str = "") -> str:
+    """Format large dashboard numbers for quick scanning."""
+    num = _coerce_float(value) or 0.0
+    sign = "-" if num < 0 else ""
+    num = abs(num)
+    if num >= 1_000_000_000:
+        body = f"{num / 1_000_000_000:.1f}B"
+    elif num >= 1_000_000:
+        body = f"{num / 1_000_000:.1f}M"
+    elif num >= 1_000:
+        body = f"{num / 1_000:.1f}K"
+    elif num == int(num):
+        body = f"{num:,.0f}"
+    else:
+        body = f"{num:,.1f}"
+    return f"{sign}{prefix}{body}{suffix}"
+
+
+def _render_section_header(
+    kicker: str,
+    title: str,
+    body: str,
+    *,
+    badge: str = "",
+) -> None:
+    badge_html = (
+        f'<span class="pq-section-badge">{html.escape(badge)}</span>'
+        if badge
+        else ""
+    )
+    st.markdown(
+        f"""
+        <div class="pq-section-head">
+            <div>
+                <p class="pq-section-kicker">{html.escape(kicker)}</p>
+                <h2 class="pq-section-title">{html.escape(title)}</h2>
+                <p class="pq-section-copy">{html.escape(body)}</p>
+            </div>
+            {badge_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_stat_tiles(stats: list[dict[str, str]]) -> None:
+    tiles = []
+    for stat in stats:
+        tone = html.escape(stat.get("tone", ""))
+        label = html.escape(stat.get("label", ""))
+        value = html.escape(stat.get("value", ""))
+        sub = html.escape(stat.get("sub", ""))
+        tiles.append(
+            f"""
+            <div class="pq-stat-tile {tone}">
+                <span class="pq-stat-label">{label}</span>
+                <span class="pq-stat-value">{value}</span>
+                <span class="pq-stat-sub">{sub}</span>
+            </div>
+            """
+        )
+    st.markdown(
+        f'<div class="pq-stat-grid">{"".join(tiles)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_empty_state(title: str, body: str) -> None:
+    st.markdown(
+        f"""
+        <div class="pq-empty-state">
+            <p class="pq-empty-title">{html.escape(title)}</p>
+            <p class="pq-empty-copy">{html.escape(body)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _value_play_stats(raw_df: pd.DataFrame, value_df: pd.DataFrame) -> list[dict[str, str]]:
+    priced = raw_df.dropna(subset=["Yes Price", "No Price"]).copy()
+    active_count = len(raw_df)
+    total_volume = float(raw_df["Volume"].sum()) if "Volume" in raw_df else 0.0
+    avg_no = float(priced["No Price"].mean() * 100.0) if not priced.empty else 0.0
+    top_edge = float(value_df["Net EV Edge %"].max()) if not value_df.empty else 0.0
+    return [
+        {
+            "label": "Elite plays",
+            "value": str(len(value_df)),
+            "sub": f"Clear >{VALUE_PLAYS_WIN_MIN:.0f}% win and +{VALUE_PLAYS_EV_EDGE_MIN:.0f}% EV gates",
+            "tone": "green" if len(value_df) else "amber",
+        },
+        {
+            "label": "Markets scanned",
+            "value": f"{active_count:,}",
+            "sub": "Live Polymarket contracts in the current feed",
+            "tone": "blue",
+        },
+        {
+            "label": "Volume scanned",
+            "value": _compact_number(total_volume, prefix="$"),
+            "sub": "Liquidity context for sizing decisions",
+            "tone": "violet",
+        },
+        {
+            "label": "Top net edge",
+            "value": f"+{top_edge:.1f}%" if top_edge > 0 else "0.0%",
+            "sub": f"Average NO line: {avg_no:.1f}c across priced markets",
+            "tone": "green" if top_edge > 0 else "amber",
+        },
+    ]
+
+
+def _catalog_stats(catalog: pd.DataFrame, filtered: pd.DataFrame) -> list[dict[str, str]]:
+    poly_count = int((catalog["Source"] == "Polymarket").sum()) if not catalog.empty else 0
+    kalshi_count = int((catalog["Source"] == "Kalshi").sum()) if not catalog.empty else 0
+    categories = int(catalog["Category"].nunique()) if not catalog.empty else 0
+    return [
+        {
+            "label": "Matches",
+            "value": f"{len(filtered):,}",
+            "sub": "Markets matching your search and filters",
+            "tone": "green" if len(filtered) else "amber",
+        },
+        {
+            "label": "Catalog",
+            "value": f"{len(catalog):,}",
+            "sub": f"{categories} categories indexed for browsing",
+            "tone": "blue",
+        },
+        {
+            "label": "Polymarket",
+            "value": f"{poly_count:,}",
+            "sub": "Live contracts with YES/NO pricing",
+            "tone": "violet",
+        },
+        {
+            "label": "Kalshi",
+            "value": f"{kalshi_count:,}",
+            "sub": "Tradeable exchange markets and props",
+            "tone": "amber",
+        },
+    ]
+
+
+def _render_app_hero() -> None:
+    st.markdown(
+        f"""
+        <div class="pq-shell-hero">
+            <div class="pq-hero-grid">
+                <div>
+                    <p class="pq-hero-kicker">Prediction-market intelligence, rebuilt</p>
+                    <h1 class="pq-hero-title">Trade the story. Respect the math.</h1>
+                    <p class="pq-hero-copy">
+                        POLY-QUANT turns noisy Polymarket and Kalshi boards into a guided
+                        command center: scan for value, understand the line, audit a ticket,
+                        compare cross-book prices, and track your performance in one flow.
+                    </p>
+                    <div class="pq-hero-actions">
+                        <span class="pq-chip">1. Find edges</span>
+                        <span class="pq-chip">2. Verify EV</span>
+                        <span class="pq-chip">3. Check arbs</span>
+                        <span class="pq-chip">4. Track results</span>
+                    </div>
+                </div>
+                <div class="pq-workflow-panel">
+                    <p class="pq-workflow-title">How to use it</p>
+                    <div class="pq-workflow-step">
+                        <span class="pq-step-num">1</span>
+                        <span><span class="pq-step-title">Start with Value Plays</span>
+                        <span class="pq-step-copy">Use the filtered table to see which markets clear strict model gates.</span></span>
+                    </div>
+                    <div class="pq-workflow-step">
+                        <span class="pq-step-num">2</span>
+                        <span><span class="pq-step-title">Explore the board</span>
+                        <span class="pq-step-copy">Search events, categories, and books before loading a market into arbs.</span></span>
+                    </div>
+                    <div class="pq-workflow-step">
+                        <span class="pq-step-num">3</span>
+                        <span><span class="pq-step-title">Audit before you place</span>
+                        <span class="pq-step-copy">Run your probability, price, and stake through the EV gatekeeper.</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_toolbar() -> None:
+    st.markdown('<div class="pq-toolbar">', unsafe_allow_html=True)
+    tool_l, tool_r = st.columns([3, 1])
+    with tool_l:
+        st.markdown('<p class="pq-toolbar-label">Search every market</p>', unsafe_allow_html=True)
+        render_global_search_bar()
+    with tool_r:
+        st.markdown('<p class="pq-toolbar-label">Odds format</p>', unsafe_allow_html=True)
+        render_odds_format_toggle()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_value_play_card(row: pd.Series, rank: int) -> None:
@@ -2334,13 +2992,17 @@ def _render_value_plays_dataframe(df: pd.DataFrame) -> None:
 
 
 def render_top_value_plays() -> None:
-    st.markdown("### 🔥 Top Value Plays")
-    st.caption(
-        f"Elite tier — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% · "
-        f"top {VALUE_PLAYS_MAX} sharpest edges"
+    _render_section_header(
+        "Start here",
+        "Top Value Plays",
+        (
+            "A curated, model-gated board of contracts where the market line appears "
+            "mispriced after fee drag. These are the clearest candidates to inspect first."
+        ),
+        badge=f">{VALUE_PLAYS_WIN_MIN:.0f}% win · +{VALUE_PLAYS_EV_EDGE_MIN:.0f}% EV",
     )
 
-    if st.button("↻ Refresh markets", key="refresh_poly"):
+    if st.button("Refresh live markets", key="refresh_poly", type="primary"):
         fetch_polymarket_markets.clear()
         st.rerun()
 
@@ -2351,7 +3013,10 @@ def render_top_value_plays() -> None:
         return
 
     if raw_df.empty:
-        st.warning("No active markets found.")
+        _render_empty_state(
+            "No active markets found",
+            "The Polymarket feed did not return active contracts. Refresh again in a moment.",
+        )
         return
 
     search = st.session_state.get("global_search_query", "")
@@ -2359,21 +3024,23 @@ def render_top_value_plays() -> None:
     if search.strip():
         df = df[df["Question"].str.contains(search.strip(), case=False, na=False)].copy()
 
+    _render_stat_tiles(_value_play_stats(raw_df, df))
+
     if df.empty:
-        st.markdown(
-            """
-            <div class="pq-value-card" style="text-align:center;padding:2rem 1.25rem;">
-                <p class="pq-event-name" style="margin-bottom:0.5rem;">No action today</p>
-                <p style="color:#8b949e;font-size:0.95rem;line-height:1.5;margin:0;">
-                    No mathematically viable anomalies detected. Maintain bankroll discipline.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        _render_empty_state(
+            "No action right now",
+            (
+                "No contracts clear the elite value gates for the current search. "
+                "That is a useful signal: keep scanning, or loosen the search term."
+            ),
         )
         return
 
-    st.caption(f"{len(df)} elite anomal{'y' if len(df) == 1 else 'ies'} on slate")
+    st.markdown('<p class="pq-section-label">Highest-conviction tickets</p>', unsafe_allow_html=True)
+    for rank, (_, row) in enumerate(df.head(3).iterrows(), start=1):
+        _render_value_play_card(row, rank)
+
+    st.markdown('<p class="pq-section-label">Ranked table</p>', unsafe_allow_html=True)
     _render_value_plays_dataframe(df)
 
 
@@ -2432,23 +3099,52 @@ def _render_audit_results(
     ev_ok = ev_yield_pct >= EV_THRESHOLD
     edge_display = f"+{ev_yield_pct:.2f}%" if ev_yield_pct >= 0 else f"{ev_yield_pct:.2f}%"
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("📊 True Probability", f"{true_win_prob:.1f}%")
-    m2.metric("⚡ Quantitative Edge", edge_display)
-    m3.metric("💰 Recommended Allocation", f"{kelly_pct:.1f}% units")
+    _render_stat_tiles(
+        [
+            {
+                "label": "True probability",
+                "value": f"{true_win_prob:.1f}%",
+                "sub": f"Gate: {'passes' if prob_ok else 'below'} {WIN_PROB_THRESHOLD:.0f}% minimum",
+                "tone": "green" if prob_ok else "amber",
+            },
+            {
+                "label": "Quant edge",
+                "value": edge_display,
+                "sub": f"Needs at least +{EV_THRESHOLD:.1f}% to qualify",
+                "tone": "green" if ev_ok else "red",
+            },
+            {
+                "label": "Projected EV",
+                "value": _signed_money(ev_dollars),
+                "sub": f"On ${stake:,.2f} stake at {share_price:.1f}c",
+                "tone": "green" if ev_dollars >= 0 else "red",
+            },
+            {
+                "label": "Kelly guide",
+                "value": f"{kelly_pct:.1f}%",
+                "sub": "Presentation-only unit sizing guide",
+                "tone": "violet",
+            },
+        ]
+    )
 
     if ev_yield_pct >= 5.0:
-        st.success(
-            "✅ MATURED VALUE ADVANTAGE: Line clears quantitative model thresholds."
+        st.markdown(
+            '<div class="pq-status-card play">Matured value advantage: this line clears the quantitative gates. '
+            "If liquidity is clean, size with discipline.</div>",
+            unsafe_allow_html=True,
         )
     elif ev_yield_pct > 0.0:
-        st.warning(
-            "⚠️ MARGINAL EDGE: Positive EV but below the 5% matured-advantage band — "
-            "size down or wait for a better line."
+        st.markdown(
+            '<div class="pq-status-card warn">Marginal edge: positive EV, but below the matured-advantage band. '
+            "Size down or wait for a better line.</div>",
+            unsafe_allow_html=True,
         )
     else:
-        st.error(
-            "⛔ NO EDGE: Offer price exceeds model fair value — pass and preserve bankroll."
+        st.markdown(
+            '<div class="pq-status-card pass">No edge: the offer price exceeds model fair value. '
+            "Pass and preserve bankroll.</div>",
+            unsafe_allow_html=True,
         )
 
     rationale = _audit_rationale_text(
@@ -2461,12 +3157,33 @@ def _render_audit_results(
         prob_ok,
         ev_ok,
     )
-    with st.expander("🔍 View Full Model Rationale & Scraped Context", expanded=False):
+    with st.expander("View full model rationale and scraped context", expanded=False):
         st.markdown(rationale)
 
 
 def render_audit_my_bet() -> None:
-    st.markdown("### ⚖️ Audit My Bet")
+    _render_section_header(
+        "Pre-flight check",
+        "Check Bet",
+        (
+            "Enter your probability estimate, the offered price, and intended stake. "
+            "The calculator translates that into EV, gate status, and a unit-sizing guide."
+        ),
+        badge="Use before every ticket",
+    )
+
+    st.markdown(
+        """
+        <div class="pq-guide-card">
+            <div class="pq-chip-row">
+                <span class="pq-chip">Enter your true win probability</span>
+                <span class="pq-chip">Paste the offered share price</span>
+                <span class="pq-chip">Review EV and Kelly sizing</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -2501,19 +3218,49 @@ def render_audit_my_bet() -> None:
 
 
 def render_hype_vs_reality() -> None:
-    st.markdown("### 📣 Hype vs. Reality")
+    _render_section_header(
+        "Narrative radar",
+        "Sentiment vs. Reality",
+        (
+            "Move the sliders to compare what the crowd believes against your fair-value view. "
+            "Large gaps flag bubbles, overreactions, and contrarian setups."
+        ),
+        badge=f"{DIVERGENCE_TRIGGER:.0f}% trigger",
+    )
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What people are saying</p>', unsafe_allow_html=True)
+        st.markdown('<div class="pq-hype-card"><p class="pq-hype-label">What people are saying</p>', unsafe_allow_html=True)
         sentiment = st.slider("Social Sentiment", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_sent")
-        st.markdown(f'<p class="pq-hype-val">{sentiment:.0f}%</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="pq-hype-val">{sentiment:.0f}%</p></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What the math says</p>', unsafe_allow_html=True)
+        st.markdown('<div class="pq-hype-card"><p class="pq-hype-label">What the math says</p>', unsafe_allow_html=True)
         implied_prob = st.slider("True Win", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_real")
-        st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p></div>', unsafe_allow_html=True)
 
     delta = sentiment - implied_prob
+    _render_stat_tiles(
+        [
+            {
+                "label": "Divergence",
+                "value": f"{delta:+.1f}%",
+                "sub": "Crowd minus model fair probability",
+                "tone": "red" if delta >= DIVERGENCE_TRIGGER else "green" if delta <= -DIVERGENCE_TRIGGER else "blue",
+            },
+            {
+                "label": "Crowd heat",
+                "value": f"{sentiment:.0f}%",
+                "sub": "Your current narrative input",
+                "tone": "amber" if sentiment >= 65 else "blue",
+            },
+            {
+                "label": "Fair view",
+                "value": f"{implied_prob:.0f}%",
+                "sub": "Your model/handicap probability",
+                "tone": "violet",
+            },
+        ]
+    )
     if delta >= DIVERGENCE_TRIGGER:
         st.markdown(
             '<div class="pq-bubble-badge">Narrative bubble — consider fading the public</div>',
@@ -2542,7 +3289,7 @@ def render_global_search_bar() -> str:
     query = st.text_input(
         "Search markets",
         key="global_search_query",
-        placeholder="Search teams, players, events…",
+        placeholder="Search teams, players, elections, props, tickers...",
         label_visibility="collapsed",
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -2616,7 +3363,15 @@ def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
 
 
 def render_explore_hub() -> None:
-    st.markdown("### 🔍 Explore")
+    _render_section_header(
+        "Discovery board",
+        "Explore Markets",
+        (
+            "Search across Polymarket and Kalshi, filter by category, and select a market "
+            "to carry it into the arb workflow."
+        ),
+        badge="Search + filter + select",
+    )
     query = st.session_state.get("global_search_query", "").strip().lower()
 
     try:
@@ -2626,9 +3381,13 @@ def render_explore_hub() -> None:
         return
 
     if catalog.empty:
-        st.warning("No markets available to explore right now.")
+        _render_empty_state(
+            "No markets available",
+            "The unified catalog is empty right now. Refresh the feed or try again shortly.",
+        )
         return
 
+    st.markdown('<p class="pq-section-label">Filter the board</p>', unsafe_allow_html=True)
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
@@ -2675,8 +3434,14 @@ def render_explore_hub() -> None:
     )
 
     if filtered.empty:
-        st.info("No markets match your filters. Try a different search or category.")
+        _render_stat_tiles(_catalog_stats(catalog, filtered))
+        _render_empty_state(
+            "No matches for this view",
+            "Try a broader search, switch the source to Both, or reset the category filter.",
+        )
         return
+
+    _render_stat_tiles(_catalog_stats(catalog, filtered))
 
     odds_fmt = get_odds_format()
     total_pages = max(1, (len(filtered) + EXPLORE_PAGE_SIZE - 1) // EXPLORE_PAGE_SIZE)
@@ -2685,7 +3450,10 @@ def render_explore_hub() -> None:
     start = page * EXPLORE_PAGE_SIZE
     page_df = filtered.iloc[start : start + EXPLORE_PAGE_SIZE]
 
-    st.caption(f"{len(filtered)} markets · showing {start + 1}–{start + len(page_df)}")
+    st.markdown(
+        f'<p class="pq-section-label">{len(filtered):,} markets · showing {start + 1}-{start + len(page_df)}</p>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.get("explore_last_pick"):
         st.success(f"Selected: {st.session_state.explore_last_pick}")
@@ -2707,7 +3475,7 @@ def render_explore_hub() -> None:
             st.session_state.explore_page = page + 1
             st.rerun()
 
-    st.markdown("#### Quick Actions")
+    st.markdown('<p class="pq-section-label">Quick actions</p>', unsafe_allow_html=True)
     qa1, qa2 = st.columns(2)
     with qa1:
         if st.button("⚖️ Audit Selected Bet", use_container_width=True):
@@ -3079,10 +3847,28 @@ def _render_arb_recipe(
 
 
 def render_risk_free_arbs() -> None:
-    st.markdown("### 💰 Risk-Free Arbs")
-    st.caption(
-        "Pick one market on each exchange. Each strategy now shows exact contract sizing, "
-        "cash needed per book, payout, profit, and the no-lock warning when prices are too high."
+    _render_section_header(
+        "Cross-book execution",
+        "Risk-Free Arbs",
+        (
+            "Pair one Polymarket contract with one Kalshi contract, then inspect exact "
+            "cash outlay, payout, profit/loss, and the current no-lock warning."
+        ),
+        badge="Two books · one ticket",
+    )
+
+    st.markdown(
+        """
+        <div class="pq-guide-card">
+            <div class="pq-chip-row">
+                <span class="pq-chip">Choose a target payout</span>
+                <span class="pq-chip">Select a Polymarket leg</span>
+                <span class="pq-chip">Confirm the closest Kalshi match</span>
+                <span class="pq-chip">Only place if combined cost is below $1</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
@@ -3123,7 +3909,10 @@ def render_risk_free_arbs() -> None:
     kalshi_priced = _filter_kalshi_tradeable(kalshi_df)
 
     if poly_priced.empty or kalshi_priced.empty:
-        st.warning("Not enough priced contracts on both books.")
+        _render_empty_state(
+            "Not enough priced contracts",
+            "Both books need tradeable YES/NO prices before the arb board can compare strategies.",
+        )
         return
 
     odds_fmt = get_odds_format()
@@ -3214,6 +4003,34 @@ def render_risk_free_arbs() -> None:
     selected_strategy = next(
         (item for item in strategies if item["key"] == selected_key),
         _best_arb_strategy(strategies),
+    )
+    _render_stat_tiles(
+        [
+            {
+                "label": "Best combined cost",
+                "value": f"{float(selected_strategy['total_cost']) * 100.0:.1f}c",
+                "sub": "Must be below 100.0c to lock profit",
+                "tone": "green" if selected_strategy["is_arb"] else "red",
+            },
+            {
+                "label": "Locked result",
+                "value": _signed_money(float(selected_strategy["profit"])),
+                "sub": f"Before fees/slippage on ${float(selected_strategy['total_outlay']):,.2f} outlay",
+                "tone": "green" if selected_strategy["is_arb"] else "red",
+            },
+            {
+                "label": "ROI",
+                "value": f"{float(selected_strategy['roi']):+.2f}%",
+                "sub": "Return on combined cash outlay",
+                "tone": "green" if selected_strategy["is_arb"] else "red",
+            },
+            {
+                "label": "Payout target",
+                "value": f"${float(selected_strategy['guaranteed_payout']):,.0f}",
+                "sub": "Equal contracts on both exchanges",
+                "tone": "violet",
+            },
+        ]
     )
     _render_selected_arb_spotlight(selected_strategy, odds_fmt)
     _render_cross_book_odds(poly_row, kalshi_row, odds_fmt)
@@ -3435,36 +4252,70 @@ POLYMARKET_WALLET_ADDRESS=0xYourPolygonAddress""",
 
 
 def render_ledger() -> None:
-    st.markdown("### 📒 The Ledger")
+    _render_section_header(
+        "Performance cockpit",
+        "The Ledger",
+        (
+            "Connect exchange credentials, sync fills, and review daily P&L, open capital, "
+            "settled outcomes, and every imported ticket."
+        ),
+        badge="Account sync + P&L",
+    )
 
     creds = _ledger_credentials()
     _render_api_keys_setup_panel(creds)
 
     if not creds["kalshi"] and not creds["polymarket"]:
-        st.info("Connect at least one account, then tap **Sync Fills** to populate your ledger.")
+        _render_empty_state(
+            "Connect an account to unlock the ledger",
+            "Add Kalshi or Polymarket API credentials, then sync fills to populate performance stats.",
+        )
 
-    if st.button("Sync fills", key="refresh_ledger", type="primary"):
+    if st.button("Sync fills", key="refresh_ledger", type="primary", use_container_width=True):
         fetch_unified_ledger.clear()
         st.rerun()
 
     ledger = fetch_unified_ledger()
     daily_net, wl_record, capital_at_risk = _ledger_kpis(ledger)
 
-    k1, k2, k3 = st.columns(3)
-    daily_cls = "pq-ev-badge" if daily_net >= 0 else "pq-badge-red"
-    daily_lbl = f"${daily_net:+,.2f}"
-    k1.markdown(
-        f'<div class="pq-card"><p class="pq-section-label">Daily Net Profit</p>'
-        f'<p style="font-size:1.4rem;font-weight:900;margin:0;"><span class="{daily_cls}">{daily_lbl}</span></p></div>',
-        unsafe_allow_html=True,
+    settled_count = int(ledger["Status"].isin(["WON", "LOST"]).sum()) if not ledger.empty else 0
+    open_count = int((ledger["Status"] == "OPEN").sum()) if not ledger.empty else 0
+    _render_stat_tiles(
+        [
+            {
+                "label": "Daily net",
+                "value": f"${daily_net:+,.2f}",
+                "sub": "Settled P&L for today",
+                "tone": "green" if daily_net >= 0 else "red",
+            },
+            {
+                "label": "Monthly W/L",
+                "value": wl_record,
+                "sub": "Current-month settled record",
+                "tone": "violet",
+            },
+            {
+                "label": "Capital at risk",
+                "value": f"${capital_at_risk:,.2f}",
+                "sub": f"{open_count:,} open positions",
+                "tone": "amber" if capital_at_risk else "blue",
+            },
+            {
+                "label": "Synced fills",
+                "value": f"{len(ledger):,}",
+                "sub": f"{settled_count:,} settled entries",
+                "tone": "green" if len(ledger) else "blue",
+            },
+        ]
     )
-    k2.metric("Monthly W/L Record", wl_record)
-    k3.metric("Total Capital at Risk", f"${capital_at_risk:,.2f}")
 
     _render_performance_calendar(ledger)
 
     if ledger.empty:
-        st.caption("No filled orders ingested yet.")
+        _render_empty_state(
+            "No filled orders ingested yet",
+            "Once credentials are configured, Sync fills will import positions into this table.",
+        )
         return
 
     display = ledger[
@@ -3500,44 +4351,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown("""
-    <style>
-    /* Minimize top padding of the main container */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 95% !important;
-    }
-    /* Hide the default Streamlit header bar decoration */
-    header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-
-    /* ── Quant terminal theme ── */
-    .stApp {
-        background-color: #050505 !important;
-        color: #e5e7eb !important;
-    }
-    section[data-testid="stSidebar"],
-    section[data-testid="stSidebar"] > div {
-        background-color: #0A0C10 !important;
-    }
-
-    /* Stylized container tiles */
-    [data-testid="stMetricContainer"] {
-        background-color: #0E121A !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-        padding: 10px 15px !important;
-    }
-    div.stExpander {
-        background-color: #0A0C10 !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 _inject_global_css()
 _init_session()
 
@@ -3546,12 +4359,11 @@ def _render_deploy_strip() -> None:
     """Always-visible deploy fingerprint so Cloud vs local is obvious."""
     st.markdown(
         f"""
-        <div style="background:#0d2818;border:1px solid #3fb950;border-radius:6px;
-        padding:0.4rem 0.7rem;margin-bottom:0.45rem;font-size:0.76rem;color:#8b949e;">
-        <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
+        <div class="pq-deploy-strip">
+        <span>LIVE BUILD</span>
         &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
-        <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
-        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        <code>{html.escape(GIT_SHA)}</code>
+        &nbsp;·&nbsp;Modern command center active
         </div>
         """,
         unsafe_allow_html=True,
@@ -3559,23 +4371,8 @@ def _render_deploy_strip() -> None:
 
 
 _render_deploy_strip()
-
-st.markdown(
-    f"""
-    <div class="pq-topbar">
-        <span class="pq-topbar-brand">POLY-QUANT</span>
-        <span class="pq-topbar-meta">Polymarket · Kalshi ·
-        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-tool_l, tool_r = st.columns([3, 1])
-with tool_l:
-    render_global_search_bar()
-with tool_r:
-    render_odds_format_toggle()
+_render_app_hero()
+_render_toolbar()
 
 
 def main() -> None:
