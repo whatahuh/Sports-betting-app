@@ -58,7 +58,7 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.2.0-arb-action-panel"
+APP_BUILD = "4.0.0-modern-ui"
 GIT_SHA = "b556168+"
 
 MIN_VOLUME = 5_000.0
@@ -1155,105 +1155,234 @@ def _inject_global_css() -> None:
     st.markdown(
         """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+            :root {
+                --pq-bg: #070a12;
+                --pq-surface: #10141f;
+                --pq-surface-2: #151b2b;
+                --pq-surface-3: #1b2336;
+                --pq-border: #232c40;
+                --pq-border-soft: #1b2233;
+                --pq-text: #e8ecf5;
+                --pq-text-dim: #9aa6bf;
+                --pq-text-faint: #6b7793;
+                --pq-accent: #7c8bff;
+                --pq-accent-2: #38bdf8;
+                --pq-green: #34d399;
+                --pq-green-dim: #10b981;
+                --pq-red: #f87171;
+                --pq-amber: #fbbf24;
+                --pq-grad: linear-gradient(135deg, #7c8bff 0%, #38bdf8 100%);
+                --pq-grad-green: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            }
 
             #MainMenu, header, footer, .stDeployButton {visibility: hidden; display: none;}
 
             .stApp {
-                background: #000000;
-                color: #f0f2f5;
+                background:
+                    radial-gradient(1100px 600px at 12% -8%, rgba(124,139,255,0.12), transparent 60%),
+                    radial-gradient(1000px 560px at 100% 0%, rgba(56,189,248,0.10), transparent 55%),
+                    var(--pq-bg);
+                color: var(--pq-text);
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             }
 
             .block-container {
-                padding: 0.5rem 0.85rem 1.5rem;
-                max-width: 100%;
+                padding: 0.6rem 0.85rem 2rem;
+                max-width: 1160px;
             }
 
-            /* Compact top bar (replaces bulky hero) */
-            .pq-topbar {
-                display: flex;
-                align-items: baseline;
-                justify-content: space-between;
-                flex-wrap: wrap;
-                gap: 0.35rem 0.75rem;
-                padding: 0.15rem 0 0.5rem;
-                margin-bottom: 0.35rem;
-                border-bottom: 1px solid #21262d;
+            ::selection { background: rgba(124,139,255,0.32); }
+
+            /* Scrollbars */
+            ::-webkit-scrollbar { width: 10px; height: 10px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb {
+                background: #2a3550; border-radius: 8px; border: 2px solid transparent;
+                background-clip: padding-box;
             }
-            .pq-topbar-brand {
-                font-size: 1rem;
-                font-weight: 800;
-                letter-spacing: -0.02em;
-                color: #ffffff;
+            ::-webkit-scrollbar-thumb:hover { background: #36446b; background-clip: padding-box; }
+
+            h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+            /* ── Hero header ── */
+            .pq-hero-bar {
+                position: relative;
+                display: flex; align-items: center; justify-content: space-between;
+                flex-wrap: wrap; gap: 0.6rem 1rem;
+                background: linear-gradient(135deg, rgba(124,139,255,0.16), rgba(56,189,248,0.06) 55%, rgba(16,20,31,0.4));
+                border: 1px solid var(--pq-border);
+                border-radius: 18px;
+                padding: 0.85rem 1.15rem;
+                margin-bottom: 0.7rem;
+                overflow: hidden;
             }
-            .pq-topbar-meta {
-                font-size: 0.72rem;
-                font-weight: 500;
-                color: #8b949e;
+            .pq-hero-bar::after {
+                content: ""; position: absolute; inset: 0;
+                background: radial-gradient(420px 120px at 90% 10%, rgba(56,189,248,0.18), transparent 70%);
+                pointer-events: none;
+            }
+            .pq-hero-left { display: flex; align-items: center; gap: 0.8rem; z-index: 1; }
+            .pq-hero-mark {
+                width: 42px; height: 42px; flex: 0 0 42px;
+                border-radius: 12px; background: var(--pq-grad);
+                display: flex; align-items: center; justify-content: center;
+                font-size: 1.4rem; box-shadow: 0 8px 22px rgba(124,139,255,0.35);
+            }
+            .pq-hero-name {
+                margin: 0; font-size: 1.45rem; font-weight: 900; line-height: 1;
+                background: linear-gradient(90deg, #ffffff, #c7d2fe);
+                -webkit-background-clip: text; background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .pq-hero-tag {
+                margin: 0.22rem 0 0; font-size: 0.76rem; font-weight: 500; color: var(--pq-text-dim);
+            }
+            .pq-hero-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; z-index: 1; }
+            .pq-chip {
+                display: inline-flex; align-items: center; gap: 0.4rem;
+                background: rgba(13,17,28,0.6); border: 1px solid var(--pq-border);
+                border-radius: 999px; padding: 0.32rem 0.7rem;
+                font-size: 0.72rem; font-weight: 700; color: var(--pq-text-dim);
+                backdrop-filter: blur(6px);
+            }
+            .pq-chip code { color: var(--pq-accent-2); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+            .pq-live-dot {
+                width: 8px; height: 8px; border-radius: 50%; background: var(--pq-green);
+                box-shadow: 0 0 0 0 rgba(52,211,153,0.7);
+                animation: pq-pulse 2s infinite;
+            }
+            @keyframes pq-pulse {
+                0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
+                70% { box-shadow: 0 0 0 7px rgba(52,211,153,0); }
+                100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
             }
 
-            /* Header (legacy hero — unused) */
-            .pq-hero {
-                background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 0.85rem 1.1rem;
-                margin-bottom: 0.65rem;
+            /* ── Command center stat cards ── */
+            .pq-cc-grid {
+                display: grid; grid-template-columns: repeat(4, 1fr);
+                gap: 0.6rem; margin-bottom: 0.7rem;
             }
-            .pq-hero h1 {
-                margin: 0;
-                font-size: 1.15rem;
-                font-weight: 800;
-                letter-spacing: -0.02em;
-                color: #ffffff;
+            @media (max-width: 760px) { .pq-cc-grid { grid-template-columns: repeat(2, 1fr); } }
+            .pq-cc-card {
+                position: relative; overflow: hidden;
+                background: linear-gradient(160deg, var(--pq-surface-2), var(--pq-surface));
+                border: 1px solid var(--pq-border);
+                border-radius: 14px; padding: 0.75rem 0.85rem;
+                transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
             }
-            .pq-hero p {
-                margin: 0.2rem 0 0;
-                font-size: 0.78rem;
-                color: #8b949e;
-                font-weight: 500;
+            .pq-cc-card:hover {
+                transform: translateY(-2px);
+                border-color: rgba(124,139,255,0.5);
+                box-shadow: 0 10px 26px rgba(0,0,0,0.35);
             }
+            .pq-cc-card::before {
+                content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+                background: var(--pq-grad); opacity: 0.85;
+            }
+            .pq-cc-card.green::before { background: var(--pq-grad-green); }
+            .pq-cc-card.amber::before { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+            .pq-cc-icon { font-size: 1rem; margin-bottom: 0.25rem; display: block; }
+            .pq-cc-label {
+                display: block; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.07em;
+                text-transform: uppercase; color: var(--pq-text-faint);
+            }
+            .pq-cc-value {
+                display: block; font-size: 1.5rem; font-weight: 900; color: var(--pq-text);
+                line-height: 1.1; margin-top: 0.2rem;
+                font-family: 'JetBrains Mono', monospace; letter-spacing: -0.02em;
+            }
+            .pq-cc-value.green { color: var(--pq-green); }
+            .pq-cc-value.amber { color: var(--pq-amber); }
+            .pq-cc-value.red { color: var(--pq-red); }
+            .pq-cc-card.red::before { background: linear-gradient(135deg, #f87171, #ef4444); }
+            .pq-cc-sub { display: block; font-size: 0.68rem; color: var(--pq-text-dim); margin-top: 0.15rem; }
+
+            /* ── Tab head + how-to-use callout ── */
+            .pq-tab-head {
+                display: flex; align-items: center; gap: 0.75rem;
+                margin: 0.3rem 0 0.55rem;
+            }
+            .pq-tab-icon {
+                width: 38px; height: 38px; flex: 0 0 38px; border-radius: 11px;
+                display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+                background: rgba(124,139,255,0.14); border: 1px solid rgba(124,139,255,0.3);
+            }
+            .pq-tab-title { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--pq-text); }
+            .pq-tab-sub { margin: 0.1rem 0 0; font-size: 0.78rem; color: var(--pq-text-dim); }
+            .pq-help {
+                background: rgba(124,139,255,0.07);
+                border: 1px solid rgba(124,139,255,0.22);
+                border-left: 3px solid var(--pq-accent);
+                border-radius: 12px; padding: 0.7rem 0.9rem; margin-bottom: 0.8rem;
+            }
+            .pq-help-title {
+                font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em;
+                text-transform: uppercase; color: var(--pq-accent);
+                margin: 0 0 0.45rem; display: flex; align-items: center; gap: 0.4rem;
+            }
+            .pq-help-steps { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+            .pq-help-step {
+                display: flex; align-items: flex-start; gap: 0.45rem;
+                flex: 1 1 160px; min-width: 140px;
+                font-size: 0.78rem; color: var(--pq-text-dim); line-height: 1.4;
+            }
+            .pq-help-num {
+                flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%;
+                background: var(--pq-grad); color: #0b1020; font-weight: 900;
+                font-size: 0.68rem; display: flex; align-items: center; justify-content: center;
+                margin-top: 0.05rem;
+            }
+            .pq-help-step strong { color: var(--pq-text); font-weight: 700; }
 
             /* Tabs */
             .stTabs [data-baseweb="tab-list"] {
-                gap: 6px;
-                background: transparent;
-                border-bottom: 1px solid #21262d;
-                padding-bottom: 0;
+                gap: 4px;
+                background: var(--pq-surface);
+                border: 1px solid var(--pq-border);
+                border-radius: 14px;
+                padding: 5px;
+                margin-bottom: 0.5rem;
             }
             .stTabs [data-baseweb="tab"] {
                 background: transparent;
-                color: #8b949e;
-                font-weight: 600;
+                color: var(--pq-text-dim);
+                font-weight: 700;
                 font-size: 0.82rem;
-                padding: 8px 14px;
-                border-radius: 8px 8px 0 0;
+                padding: 8px 15px;
+                border-radius: 10px;
                 border: none;
+                transition: all 0.18s ease;
+            }
+            .stTabs [data-baseweb="tab"]:hover {
+                color: var(--pq-text);
+                background: rgba(255,255,255,0.04);
             }
             .stTabs [aria-selected="true"] {
-                color: #58a6ff !important;
-                background: #161b22 !important;
-                border-bottom: 2px solid #58a6ff !important;
+                color: #ffffff !important;
+                background: var(--pq-grad) !important;
+                box-shadow: 0 6px 16px rgba(124,139,255,0.32) !important;
             }
+            .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none !important; }
 
             /* Cards */
             .pq-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: 14px;
                 padding: 0.9rem 1rem;
                 margin-bottom: 0.55rem;
             }
             .pq-card-compound {
-                border-color: #238636;
-                background: linear-gradient(135deg, rgba(35,134,54,0.15) 0%, #161b22 60%);
-                box-shadow: 0 0 20px rgba(63,185,80,0.12);
+                border-color: rgba(52,211,153,0.5);
+                background: linear-gradient(135deg, rgba(16,185,129,0.15) 0%, var(--pq-surface-2) 60%);
+                box-shadow: 0 0 24px rgba(52,211,153,0.12);
             }
             .pq-card-title {
                 font-size: 0.92rem;
                 font-weight: 700;
-                color: #f0f2f5;
+                color: var(--pq-text);
                 line-height: 1.35;
                 margin: 0 0 0.55rem;
             }
@@ -1425,21 +1554,39 @@ def _inject_global_css() -> None:
 
             /* Streamlit widgets */
             [data-testid="stMetric"] {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 10px;
-                padding: 0.6rem 0.75rem;
-            }
-            [data-testid="stDataFrame"] {
-                border: 1px solid #21262d;
+                background: linear-gradient(160deg, var(--pq-surface-2), var(--pq-surface));
+                border: 1px solid var(--pq-border);
                 border-radius: 12px;
+                padding: 0.7rem 0.85rem;
+                transition: border-color 0.18s ease;
             }
-            .stSlider label, .stNumberInput label, .stSelectbox label {
+            [data-testid="stMetric"]:hover { border-color: rgba(124,139,255,0.45); }
+            [data-testid="stMetricValue"] { font-weight: 800; }
+            [data-testid="stMetricLabel"] p { color: var(--pq-text-dim) !important; font-weight: 600 !important; }
+            [data-testid="stDataFrame"] {
+                border: 1px solid var(--pq-border);
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            .stSlider label, .stNumberInput label, .stSelectbox label, .stTextInput label {
                 font-weight: 600 !important;
                 font-size: 0.82rem !important;
+                color: var(--pq-text-dim) !important;
+            }
+            .stNumberInput input, .stTextInput input {
+                background: var(--pq-bg) !important;
+                border-radius: 10px !important;
+            }
+            div[data-baseweb="input"], div[data-baseweb="select"] > div {
+                border-radius: 10px !important;
+                border-color: var(--pq-border) !important;
+            }
+            div[data-baseweb="input"]:focus-within, div[data-baseweb="select"] > div:focus-within {
+                border-color: var(--pq-accent) !important;
+                box-shadow: 0 0 0 2px rgba(124,139,255,0.25) !important;
             }
             hr {
-                border-color: #21262d;
+                border-color: var(--pq-border);
                 margin: 0.75rem 0;
             }
 
@@ -1504,41 +1651,58 @@ def _inject_global_css() -> None:
             /* Tactile buttons */
             .stButton > button {
                 border-radius: 10px !important;
-                font-weight: 600 !important;
-                min-height: 2.35rem;
+                font-weight: 700 !important;
+                min-height: 2.4rem;
+                transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease !important;
             }
+            .stButton > button:hover { transform: translateY(-1px); }
+            .stButton > button:active { transform: translateY(0); }
             .stButton > button[kind="secondary"] {
-                background: #21262d !important;
-                border: 1px solid #30363d !important;
-                color: #c9d1d9 !important;
+                background: var(--pq-surface-3) !important;
+                border: 1px solid var(--pq-border) !important;
+                color: var(--pq-text) !important;
+            }
+            .stButton > button[kind="secondary"]:hover {
+                border-color: rgba(124,139,255,0.55) !important;
+                background: #20293f !important;
             }
             .stButton > button[kind="primary"] {
-                background: #1f6feb !important;
-                border: 1px solid #388bfd !important;
+                background: var(--pq-grad) !important;
+                border: none !important;
+                color: #ffffff !important;
+                box-shadow: 0 6px 16px rgba(124,139,255,0.3) !important;
             }
+            .stButton > button[kind="primary"]:hover { filter: brightness(1.08); box-shadow: 0 9px 22px rgba(124,139,255,0.42) !important; }
 
             /* Segmented control polish */
             [data-testid="stSegmentedControl"] {
-                background: #0d1117;
+                background: var(--pq-surface);
+                border: 1px solid var(--pq-border);
                 border-radius: 10px;
                 padding: 3px;
+            }
+            [data-testid="stSegmentedControl"] button[aria-checked="true"] {
+                background: var(--pq-grad) !important;
+                color: #fff !important;
             }
 
             /* Pikkit-style explore feed */
             .pq-search-hero {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 0.65rem 0.85rem;
-                margin-bottom: 0.55rem;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: 12px;
+                padding: 0.35rem 0.5rem;
+                margin-bottom: 0;
             }
             .pq-feed-row {
-                background: #161b22;
-                border: 1px solid #21262d;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
                 border-radius: 12px;
                 padding: 0.75rem 0.85rem;
                 margin-bottom: 0.45rem;
+                transition: border-color 0.16s ease, transform 0.16s ease;
             }
+            .pq-feed-row:hover { border-color: rgba(124,139,255,0.45); transform: translateX(2px); }
             .pq-feed-meta {
                 display: block;
                 font-size: 0.65rem;
@@ -1585,15 +1749,17 @@ def _inject_global_css() -> None:
 
             /* Phase 1 — tactile value cards */
             .pq-value-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: linear-gradient(160deg, var(--pq-surface-2), var(--pq-surface));
+                border: 1px solid var(--pq-border);
+                border-radius: 16px;
                 padding: 1rem 1.1rem;
                 margin-bottom: 0.65rem;
+                transition: transform 0.18s ease, box-shadow 0.18s ease;
             }
+            .pq-value-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
             .pq-value-card-hot {
-                border-color: #238636;
-                box-shadow: 0 0 18px rgba(63,185,80,0.15);
+                border-color: rgba(52,211,153,0.5);
+                box-shadow: 0 0 22px rgba(52,211,153,0.14);
             }
             .pq-event-name {
                 font-size: 0.95rem;
@@ -1604,7 +1770,7 @@ def _inject_global_css() -> None:
             }
             .pq-cta-pill {
                 display: inline-block;
-                background: linear-gradient(90deg, #1f6feb, #388bfd);
+                background: var(--pq-grad);
                 color: #fff;
                 font-weight: 800;
                 font-size: 0.82rem;
@@ -1612,12 +1778,13 @@ def _inject_global_css() -> None:
                 border-radius: 999px;
                 margin-bottom: 0.55rem;
                 letter-spacing: 0.02em;
+                box-shadow: 0 6px 16px rgba(124,139,255,0.3);
             }
             .pq-ev-badge {
                 display: inline-block;
-                background: rgba(63,185,80,0.25);
-                color: #3fb950;
-                border: 1px solid #3fb950;
+                background: rgba(52,211,153,0.18);
+                color: var(--pq-green);
+                border: 1px solid rgba(52,211,153,0.5);
                 font-weight: 800;
                 font-size: 0.8rem;
                 padding: 0.3rem 0.65rem;
@@ -2180,18 +2347,19 @@ def _inject_global_css() -> None:
 
             /* Elite value plays (SOP) */
             .pq-value-card-elite {
-                border: 2px solid #3fb950;
-                box-shadow: 0 0 22px rgba(63,185,80,0.28);
+                border: 1.5px solid rgba(52,211,153,0.7);
+                box-shadow: 0 0 26px rgba(52,211,153,0.26);
+                background: linear-gradient(160deg, rgba(16,185,129,0.12), var(--pq-surface) 65%);
             }
             .pq-rank-badge {
-                display: inline-block; background: rgba(63,185,80,0.2);
-                color: #3fb950; border: 1px solid #3fb950;
+                display: inline-block; background: rgba(52,211,153,0.16);
+                color: var(--pq-green); border: 1px solid rgba(52,211,153,0.5);
                 font-weight: 800; font-size: 0.72rem;
                 padding: 0.28rem 0.6rem; border-radius: 999px;
                 margin-bottom: 0.5rem; letter-spacing: 0.03em;
             }
             .pq-rank-badge-elite {
-                background: rgba(63,185,80,0.35); font-size: 0.78rem;
+                background: var(--pq-grad-green); color: #06231a; font-size: 0.78rem;
             }
 
             /* Compact explore feed — single row on mobile */
@@ -2219,7 +2387,16 @@ def _inject_global_css() -> None:
                 flex-shrink: 0 !important;
             }
 
-            .block-container { max-width: 1100px; padding-bottom: 2rem; }
+            .block-container { max-width: 1160px; padding-bottom: 2rem; }
+
+            /* Empty-state + misc polish */
+            .stAlert { border-radius: 12px !important; }
+            .pq-empty {
+                text-align: center; padding: 2.5rem 1.25rem;
+                background: linear-gradient(160deg, var(--pq-surface-2), var(--pq-surface));
+                border: 1px dashed var(--pq-border); border-radius: 16px;
+            }
+            .pq-empty-icon { font-size: 2.2rem; display: block; margin-bottom: 0.5rem; }
 
         </style>
         """,
@@ -2334,14 +2511,25 @@ def _render_value_plays_dataframe(df: pd.DataFrame) -> None:
 
 
 def render_top_value_plays() -> None:
-    st.markdown("### 🔥 Top Value Plays")
-    st.caption(
-        f"Elite tier — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% · "
-        f"top {VALUE_PLAYS_MAX} sharpest edges"
+    _render_tab_head(
+        "🔥",
+        "Top Value Plays",
+        f"The slate's sharpest edges — model win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, "
+        f"net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}%, top {VALUE_PLAYS_MAX} only.",
+    )
+    _render_how_to(
+        "How to read this",
+        [
+            "Each row is a market our model thinks is <strong>mispriced</strong> in your favour.",
+            "<strong>Quant Edge</strong> = profit margin after fees. Higher is better.",
+            "<strong>True Prob</strong> vs <strong>Implied</strong> shows the gap we're exploiting.",
+            "Confirm the live price on the exchange, then size with <strong>Check Bet</strong>.",
+        ],
     )
 
     if st.button("↻ Refresh markets", key="refresh_poly"):
         fetch_polymarket_markets.clear()
+        _compute_overview_stats.clear()
         st.rerun()
 
     try:
@@ -2362,10 +2550,12 @@ def render_top_value_plays() -> None:
     if df.empty:
         st.markdown(
             """
-            <div class="pq-value-card" style="text-align:center;padding:2rem 1.25rem;">
-                <p class="pq-event-name" style="margin-bottom:0.5rem;">No action today</p>
-                <p style="color:#8b949e;font-size:0.95rem;line-height:1.5;margin:0;">
-                    No mathematically viable anomalies detected. Maintain bankroll discipline.
+            <div class="pq-empty">
+                <span class="pq-empty-icon">🧘</span>
+                <p class="pq-event-name" style="margin-bottom:0.5rem;">No elite edges right now</p>
+                <p style="color:var(--pq-text-dim);font-size:0.92rem;line-height:1.5;margin:0;">
+                    The model found no mathematically viable mispricings on the current slate.
+                    The smartest play is no play — check back after the next refresh.
                 </p>
             </div>
             """,
@@ -2373,7 +2563,7 @@ def render_top_value_plays() -> None:
         )
         return
 
-    st.caption(f"{len(df)} elite anomal{'y' if len(df) == 1 else 'ies'} on slate")
+    st.caption(f"✨ {len(df)} elite edge{'' if len(df) == 1 else 's'} on the slate · tap a column header to sort")
     _render_value_plays_dataframe(df)
 
 
@@ -2466,7 +2656,19 @@ def _render_audit_results(
 
 
 def render_audit_my_bet() -> None:
-    st.markdown("### ⚖️ Audit My Bet")
+    _render_tab_head(
+        "⚖️",
+        "Check My Bet",
+        "Instantly grade any bet — paste the price and your win estimate.",
+    )
+    _render_how_to(
+        "How to use",
+        [
+            "Enter <strong>your win estimate</strong> — how likely you think the outcome is.",
+            "Enter the <strong>share price</strong> the exchange is charging (in cents).",
+            "Set your <strong>stake</strong>, then read the EV, edge &amp; recommended size below.",
+        ],
+    )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -2501,7 +2703,19 @@ def render_audit_my_bet() -> None:
 
 
 def render_hype_vs_reality() -> None:
-    st.markdown("### 📣 Hype vs. Reality")
+    _render_tab_head(
+        "📣",
+        "Hype vs. Reality",
+        "Spot overpriced narratives by comparing crowd sentiment to the math.",
+    )
+    _render_how_to(
+        "How to use",
+        [
+            "Set <strong>Social Sentiment</strong> — how hyped the crowd is (0–100%).",
+            "Set <strong>True Win</strong> — the model / fair probability.",
+            "A big gap flags a <strong>narrative bubble</strong> worth fading.",
+        ],
+    )
 
     col1, col2 = st.columns(2)
     with col1:
@@ -2616,7 +2830,19 @@ def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
 
 
 def render_explore_hub() -> None:
-    st.markdown("### 🔍 Explore")
+    _render_tab_head(
+        "🔍",
+        "Explore Markets",
+        "Search and browse every live market across Polymarket & Kalshi.",
+    )
+    _render_how_to(
+        "How to use",
+        [
+            "Search up top or filter by <strong>category</strong> and <strong>source</strong>.",
+            "Each row shows live <strong>YES / NO</strong> odds in your chosen format.",
+            "Tap <strong>Select market</strong> to load it into the Arbs &amp; Check Bet tools.",
+        ],
+    )
     query = st.session_state.get("global_search_query", "").strip().lower()
 
     try:
@@ -2661,6 +2887,7 @@ def render_explore_hub() -> None:
             fetch_polymarket_markets.clear()
             fetch_kalshi_markets.clear()
             fetch_kalshi_player_props.clear()
+            _compute_overview_stats.clear()
             st.rerun()
     with c3:
         st.caption("Tap **Select** on a row to load into Arbs.")
@@ -3079,10 +3306,18 @@ def _render_arb_recipe(
 
 
 def render_risk_free_arbs() -> None:
-    st.markdown("### 💰 Risk-Free Arbs")
-    st.caption(
-        "Pick one market on each exchange. Each strategy now shows exact contract sizing, "
-        "cash needed per book, payout, profit, and the no-lock warning when prices are too high."
+    _render_tab_head(
+        "💰",
+        "Risk-Free Arbs",
+        "Lock guaranteed profit by pairing the same outcome across both exchanges.",
+    )
+    _render_how_to(
+        "How to use",
+        [
+            "Pick the <strong>same event</strong> on Polymarket and Kalshi (auto-suggested for you).",
+            "If the combined cost is <strong>under $1.00</strong>, you've found a locked profit.",
+            "Follow the <strong>exact ticket</strong> — contracts &amp; cash per book are shown for you.",
+        ],
     )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
@@ -3435,7 +3670,19 @@ POLYMARKET_WALLET_ADDRESS=0xYourPolygonAddress""",
 
 
 def render_ledger() -> None:
-    st.markdown("### 📒 The Ledger")
+    _render_tab_head(
+        "📒",
+        "Performance Ledger",
+        "Connect your accounts to track real P&L across both books.",
+    )
+    _render_how_to(
+        "How to use",
+        [
+            "Connect <strong>Kalshi</strong> and/or <strong>Polymarket</strong> with API keys below.",
+            "Tap <strong>Sync fills</strong> to pull your settled and open positions.",
+            "Track daily P&amp;L, win rate &amp; capital at risk on the calendar.",
+        ],
+    )
 
     creds = _ledger_credentials()
     _render_api_keys_setup_panel(creds)
@@ -3450,16 +3697,21 @@ def render_ledger() -> None:
     ledger = fetch_unified_ledger()
     daily_net, wl_record, capital_at_risk = _ledger_kpis(ledger)
 
-    k1, k2, k3 = st.columns(3)
-    daily_cls = "pq-ev-badge" if daily_net >= 0 else "pq-badge-red"
-    daily_lbl = f"${daily_net:+,.2f}"
-    k1.markdown(
-        f'<div class="pq-card"><p class="pq-section-label">Daily Net Profit</p>'
-        f'<p style="font-size:1.4rem;font-weight:900;margin:0;"><span class="{daily_cls}">{daily_lbl}</span></p></div>',
+    daily_tone = "green" if daily_net > 0 else ("amber" if daily_net == 0 else "red")
+    daily_card = _cc_card(
+        "📈", "Daily net profit", f"${daily_net:+,.2f}",
+        "Settled bets today", tone=daily_tone,
+    )
+    wl_card = _cc_card("🏆", "This month W / L", wl_record, "Settled record")
+    risk_card = _cc_card(
+        "💼", "Capital at risk", f"${capital_at_risk:,.2f}",
+        "Open positions", tone="amber",
+    )
+    st.markdown(
+        f'<div class="pq-cc-grid" style="grid-template-columns:repeat(3,1fr);">'
+        f"{daily_card}{wl_card}{risk_card}</div>",
         unsafe_allow_html=True,
     )
-    k2.metric("Monthly W/L Record", wl_record)
-    k3.metric("Total Capital at Risk", f"${capital_at_risk:,.2f}")
 
     _render_performance_calendar(ledger)
 
@@ -3494,82 +3746,190 @@ def render_ledger() -> None:
 # --------------------------------------------------------------------------- #
 
 st.set_page_config(
-    page_title=f"POLY-QUANT · {APP_BUILD}",
+    page_title="POLY-QUANT · Prediction Market Intelligence",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-st.markdown("""
-    <style>
-    /* Minimize top padding of the main container */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 95% !important;
-    }
-    /* Hide the default Streamlit header bar decoration */
-    header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-
-    /* ── Quant terminal theme ── */
-    .stApp {
-        background-color: #050505 !important;
-        color: #e5e7eb !important;
-    }
-    section[data-testid="stSidebar"],
-    section[data-testid="stSidebar"] > div {
-        background-color: #0A0C10 !important;
-    }
-
-    /* Stylized container tiles */
-    [data-testid="stMetricContainer"] {
-        background-color: #0E121A !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-        padding: 10px 15px !important;
-    }
-    div.stExpander {
-        background-color: #0A0C10 !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 _inject_global_css()
 _init_session()
 
 
-def _render_deploy_strip() -> None:
-    """Always-visible deploy fingerprint so Cloud vs local is obvious."""
+def _fmt_compact_money(value: Optional[float]) -> str:
+    """Human-readable big-dollar formatter (e.g. $1.2M, $940K)."""
+    if value is None or pd.isna(value):
+        return "—"
+    value = float(value)
+    if value >= 1_000_000_000:
+        return f"${value / 1_000_000_000:.1f}B"
+    if value >= 1_000_000:
+        return f"${value / 1_000_000:.1f}M"
+    if value >= 1_000:
+        return f"${value / 1_000:.0f}K"
+    return f"${value:,.0f}"
+
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def _compute_overview_stats() -> dict[str, Any]:
+    """Live, data-driven headline stats for the command center (read-only)."""
+    stats: dict[str, Any] = {
+        "markets": None,
+        "plays": None,
+        "best_edge": None,
+        "volume": None,
+        "poly_ok": False,
+        "kalshi_ok": False,
+    }
+    try:
+        catalog = build_explore_catalog()
+        if not catalog.empty:
+            stats["markets"] = int(len(catalog))
+            stats["poly_ok"] = bool((catalog["Source"] == "Polymarket").any())
+            stats["kalshi_ok"] = bool((catalog["Source"] == "Kalshi").any())
+    except Exception:
+        pass
+    try:
+        poly = fetch_polymarket_markets()
+        if not poly.empty:
+            stats["volume"] = float(poly["Volume"].fillna(0).sum())
+            plays = _filter_value_plays(poly)
+            stats["plays"] = int(len(plays))
+            if not plays.empty:
+                stats["best_edge"] = float(plays["Net EV Edge %"].max())
+    except Exception:
+        pass
+    return stats
+
+
+def _render_hero() -> None:
     st.markdown(
         f"""
-        <div style="background:#0d2818;border:1px solid #3fb950;border-radius:6px;
-        padding:0.4rem 0.7rem;margin-bottom:0.45rem;font-size:0.76rem;color:#8b949e;">
-        <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
-        &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
-        <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
-        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        <div class="pq-hero-bar">
+            <div class="pq-hero-left">
+                <div class="pq-hero-mark">📈</div>
+                <div>
+                    <h1 class="pq-hero-name">POLY-QUANT</h1>
+                    <p class="pq-hero-tag">Find the edge across Polymarket &amp; Kalshi —
+                    value plays, risk-free arbs, and your performance, all in one place.</p>
+                </div>
+            </div>
+            <div class="pq-hero-right">
+                <span class="pq-chip"><span class="pq-live-dot"></span>Live data</span>
+                <span class="pq-chip">Polymarket · Kalshi</span>
+                <span class="pq-chip">build <code>{html.escape(APP_BUILD)}</code></span>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-_render_deploy_strip()
+def _cc_card(icon: str, label: str, value: str, sub: str, tone: str = "") -> str:
+    tone_cls = f" {tone}" if tone else ""
+    val_cls = f" {tone}" if tone in ("green", "amber", "red") else ""
+    return (
+        f'<div class="pq-cc-card{tone_cls}">'
+        f'<span class="pq-cc-icon">{icon}</span>'
+        f'<span class="pq-cc-label">{html.escape(label)}</span>'
+        f'<span class="pq-cc-value{val_cls}">{value}</span>'
+        f'<span class="pq-cc-sub">{sub}</span>'
+        "</div>"
+    )
 
-st.markdown(
-    f"""
-    <div class="pq-topbar">
-        <span class="pq-topbar-brand">POLY-QUANT</span>
-        <span class="pq-topbar-meta">Polymarket · Kalshi ·
-        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+
+def _render_command_center() -> None:
+    stats = _compute_overview_stats()
+    markets = f"{stats['markets']:,}" if stats["markets"] is not None else "—"
+    plays = str(stats["plays"]) if stats["plays"] is not None else "—"
+    best_edge = (
+        f"+{stats['best_edge']:.1f}% best edge"
+        if stats["best_edge"] is not None
+        else "scanning…"
+    )
+    volume = _fmt_compact_money(stats["volume"])
+    plays_tone = "green" if (stats["plays"] or 0) > 0 else "amber"
+
+    books_live = int(stats["poly_ok"]) + int(stats["kalshi_ok"])
+    poly_state = "✓ online" if stats["poly_ok"] else "· offline"
+    kalshi_state = "✓ online" if stats["kalshi_ok"] else "· offline"
+
+    cards = "".join([
+        _cc_card("🛰️", "Markets tracked", markets, "Across both exchanges"),
+        _cc_card("🔥", "Value plays live", plays, best_edge, tone=plays_tone),
+        _cc_card("💧", "Total volume", volume, "Across tracked markets", tone="amber"),
+        _cc_card(
+            "⚖️", "Exchanges live", f"{books_live} / 2",
+            f"Poly {poly_state} · Kalshi {kalshi_state}",
+        ),
+    ])
+    st.markdown(f'<div class="pq-cc-grid">{cards}</div>', unsafe_allow_html=True)
+
+
+def _render_onboarding() -> None:
+    first_visit = not st.session_state.get("pq_onboarded", False)
+    with st.expander("👋  New here?  How to use POLY-QUANT in 60 seconds", expanded=first_visit):
+        st.markdown(
+            """
+**POLY-QUANT scans prediction markets and tells you where the math says there's an edge.**
+Here's what each tab does:
+
+| Tab | What it's for |
+| --- | --- |
+| 🔥 **Value Plays** | The day's sharpest, model-approved bets — ranked by net expected value. Start here. |
+| 🔍 **Explore** | Browse & search every live market across both books, then send one to the tools. |
+| ⚖️ **Check Bet** | Paste any price + your win estimate → instant EV, edge, and a recommended bet size. |
+| 📣 **Sentiment** | Compare the hype (crowd sentiment) vs. the math to spot overpriced narratives. |
+| 💰 **Arbs** | Pick a market on each exchange to find guaranteed-profit, risk-free pairs. |
+| 📒 **Ledger** | Connect your accounts to track real P&L on a performance calendar. |
+
+**Quick start:** use the search bar up top to find a market, set your odds format on the right,
+then open **🔥 Value Plays** to see today's best edges.
+            """
+        )
+        st.caption(
+            "Tip: every number here is for research only — always confirm live prices on the "
+            "exchange before placing a bet."
+        )
+    if first_visit:
+        st.session_state.pq_onboarded = True
+
+
+def _render_tab_head(icon: str, title: str, subtitle: str) -> None:
+    st.markdown(
+        f"""
+        <div class="pq-tab-head">
+            <div class="pq-tab-icon">{icon}</div>
+            <div>
+                <p class="pq-tab-title">{html.escape(title)}</p>
+                <p class="pq-tab-sub">{html.escape(subtitle)}</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_how_to(title: str, steps: list[str]) -> None:
+    items = "".join(
+        f'<div class="pq-help-step"><span class="pq-help-num">{i + 1}</span>'
+        f'<span>{step}</span></div>'
+        for i, step in enumerate(steps)
+    )
+    st.markdown(
+        f"""
+        <div class="pq-help">
+            <p class="pq-help-title">💡 {html.escape(title)}</p>
+            <div class="pq-help-steps">{items}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+_render_hero()
+_render_command_center()
+_render_onboarding()
 
 tool_l, tool_r = st.columns([3, 1])
 with tool_l:

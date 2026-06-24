@@ -15,7 +15,7 @@ streamlit run app.py
 2. **Branch:** `main`
 3. **Main file:** `app.py`
 4. After each push to `main`, open the app → **⋮ → Reboot app**
-5. Confirm the header shows the latest **Build** tag (e.g. `2.2.0-arb-autosuggest`)
+5. Confirm the header shows the latest **Build** tag (e.g. `4.0.0-modern-ui`)
 
 ## Current build
 

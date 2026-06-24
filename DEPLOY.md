@@ -13,11 +13,11 @@ If the app looks unchanged after pushes to GitHub:
 
 ## Verify you are on the latest build
 
-The green bar at the top of the app must show:
+The header chip at the top of the app must show:
 
-- **LIVE BUILD 3.2.0-arb-action-panel**
+- **build 4.0.0-modern-ui**
 - **commit b556168+** (or newer after subsequent deploys)
 
-Browser tab title should read: `POLY-QUANT · 3.2.0-arb-action-panel`
+Browser tab title should read: `POLY-QUANT · Prediction Market Intelligence`
 
-If the build string is older (e.g. `2.2.0-arb-autosuggest`), Streamlit Cloud is **not** serving current `main`.
+If the build string is older (e.g. `3.2.0-arb-action-panel`), Streamlit Cloud is **not** serving current `main`.
