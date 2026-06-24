@@ -65,6 +65,12 @@ WIN_PROB_THRESHOLD = 75.0
 DIVERGENCE_TRIGGER = 20.0
 DISPLAY_MODEL_WIN_PCT = 77.5
 
+# Top Value Plays — Master SOP gates (presentation / filter layer only)
+VALUE_PLAYS_WIN_MIN = 75.0          # strict: model win prob must be > 75%
+VALUE_PLAYS_EV_EDGE_MIN = 5.0       # net EV edge >= 5% after platform fees
+VALUE_PLAYS_MAX = 5                 # elite tier cap — sharpest edges only
+PLATFORM_FEE_PCT = 2.0              # Polymarket winner fee drag on gross profit
+
 COL_QUESTION = 200
 COL_PRICE = 72
 COL_VOLUME = 88
@@ -149,6 +155,45 @@ def _select_label(text: str, max_len: int = 72) -> str:
 
 def _in_strike_zone(no_price: float) -> bool:
     return STRIKE_LO <= no_price <= STRIKE_HI
+
+
+def _model_win_pct_for_no_price(no_price: float) -> float:
+    """Presentation-layer true probability estimate for a NO position."""
+    return DISPLAY_MODEL_WIN_PCT if _in_strike_zone(no_price) else no_price * 100.0
+
+
+def _net_ev_edge_pct(model_win_pct: float, cost_cents: float, stake: float = 100.0) -> float:
+    """
+    Net EV edge % after platform fee on winnings.
+    Wraps _calc_ev_dollars — does not alter the core settlement formula.
+    """
+    gross_ev, _ = _calc_ev_dollars(model_win_pct, stake, cost_cents)
+    p_win = model_win_pct / 100.0
+    cost = cost_cents / 100.0
+    shares = stake / cost if cost > 0 else 0.0
+    profit = (shares * 1.0) - stake
+    fee_drag = p_win * profit * (PLATFORM_FEE_PCT / 100.0)
+    net_ev = gross_ev - fee_drag
+    return (net_ev / stake) * 100.0 if stake > 0 else 0.0
+
+
+def _enrich_value_plays(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach model win %, gross EV, and fee-adjusted net EV edge to each row."""
+    out = df.dropna(subset=["No Price"]).copy()
+    if out.empty:
+        return out
+
+    out["Model Win %"] = out["No Price"].apply(_model_win_pct_for_no_price)
+    out["Cost ¢"] = (out["No Price"] * 100.0).round(1)
+    ev_cols = out.apply(
+        lambda r: _calc_ev_dollars(r["Model Win %"], 100.0, r["Cost ¢"]), axis=1
+    )
+    out["Gross EV $"] = ev_cols.apply(lambda t: t[0])
+    out["Gross EV %"] = ev_cols.apply(lambda t: t[1])
+    out["Net EV Edge %"] = out.apply(
+        lambda r: _net_ev_edge_pct(r["Model Win %"], r["Cost ¢"]), axis=1
+    )
+    return out
 
 
 def _parse_kalshi_market_row(market: dict[str, Any]) -> dict[str, Any]:
@@ -277,10 +322,21 @@ def fetch_kalshi_player_props() -> pd.DataFrame:
 
 
 def _filter_value_plays(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """Backend liquidity + pricing filter (unchanged)."""
-    df = raw_df.dropna(subset=["No Price"]).copy()
-    df = df[df["Volume"] >= MIN_VOLUME].copy()
-    return df.sort_values("No Price", ascending=True).reset_index(drop=True)
+    """
+    Master SOP filter: win prob > 75%, net EV edge >= 5%, sort DESC by edge, cap at 5.
+    """
+    out = _enrich_value_plays(raw_df)
+    if out.empty:
+        return out
+
+    out = out[out["Volume"] >= MIN_VOLUME]
+    out = out[out["Model Win %"] > VALUE_PLAYS_WIN_MIN]
+    out = out[out["Net EV Edge %"] >= VALUE_PLAYS_EV_EDGE_MIN]
+    return (
+        out.sort_values("Net EV Edge %", ascending=False)
+        .reset_index(drop=True)
+        .head(VALUE_PLAYS_MAX)
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1322,6 +1378,27 @@ def _inject_global_css() -> None:
                 border-color: #238636;
                 box-shadow: 0 0 18px rgba(63,185,80,0.15);
             }
+            .pq-value-card-elite {
+                border: 2px solid #3fb950;
+                box-shadow: 0 0 22px rgba(63,185,80,0.28);
+            }
+            .pq-rank-badge {
+                display: inline-block;
+                background: rgba(63,185,80,0.2);
+                color: #3fb950;
+                border: 1px solid #3fb950;
+                font-weight: 800;
+                font-size: 0.75rem;
+                padding: 0.28rem 0.6rem;
+                border-radius: 999px;
+                margin-bottom: 0.5rem;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            .pq-rank-badge-elite {
+                background: rgba(63,185,80,0.35);
+                font-size: 0.82rem;
+            }
             .pq-event-name {
                 font-size: 0.95rem;
                 font-weight: 800;
@@ -1487,24 +1564,26 @@ def _inject_global_css() -> None:
     )
 
 
-def _render_value_play_card(row: pd.Series) -> None:
+def _render_value_play_card(row: pd.Series, rank: int) -> None:
     """Tactile standalone market card (presentation only)."""
     no_p = float(row["No Price"])
-    in_zone = _in_strike_zone(no_p)
-    model_win = DISPLAY_MODEL_WIN_PCT if in_zone else no_p * 100.0
-    _, ev_edge = _calc_ev_dollars(model_win, 100.0, no_p * 100.0)
+    model_win = float(row["Model Win %"])
+    net_edge = float(row["Net EV Edge %"])
     implied_pct = no_p * 100.0
-    card_cls = "pq-value-card pq-value-card-hot" if in_zone else "pq-value-card"
+    card_cls = "pq-value-card pq-value-card-elite" if rank == 1 else "pq-value-card pq-value-card-hot"
+    rank_cls = "pq-rank-badge pq-rank-badge-elite" if rank == 1 else "pq-rank-badge"
+    rank_label = "🥇 Best Play #1" if rank == 1 else f"#{rank} Sharpest Edge"
     event = html.escape(str(row["Question"]))
     st.markdown(
         f"""
         <div class="{card_cls}">
+            <span class="{rank_cls}">{rank_label}</span>
             <p class="pq-event-name">{event}</p>
             <div class="pq-cta-pill">BET NO AT ${no_p:.2f}</div>
             <div class="pq-metric-row">
+                <span class="pq-ev-badge">+{net_edge:.2f}% NET EV</span>
+                <span>True Prob <strong>{model_win:.1f}%</strong></span>
                 <span>Market Implied <strong>{implied_pct:.1f}%</strong></span>
-                <span>Model Win <strong>{model_win:.1f}%</strong></span>
-                <span class="pq-ev-badge">+{ev_edge:.1f}% EV</span>
             </div>
         </div>
         """,
@@ -1514,6 +1593,10 @@ def _render_value_play_card(row: pd.Series) -> None:
 
 def render_top_value_plays() -> None:
     st.markdown("### 🔥 Top Value Plays")
+    st.caption(
+        f"Elite tier only — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, "
+        f"net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% after fees · top {VALUE_PLAYS_MAX} sharpest edges"
+    )
 
     if st.button("↻ Refresh", key="refresh_poly"):
         fetch_polymarket_markets.clear()
@@ -1529,11 +1612,6 @@ def render_top_value_plays() -> None:
         st.warning("No active markets found.")
         return
 
-    df = _filter_value_plays(raw_df)
-    if df.empty:
-        st.warning("No qualifying plays right now.")
-        return
-
     search = st.text_input(
         "Search",
         key="value_plays_search",
@@ -1542,15 +1620,28 @@ def render_top_value_plays() -> None:
     )
     if not search.strip():
         search = st.session_state.get("global_search_query", "")
+
+    df = _filter_value_plays(raw_df)
     if search.strip():
         df = df[df["Question"].str.contains(search.strip(), case=False, na=False)].copy()
-        if df.empty:
-            st.info("No matches.")
-            return
 
-    st.caption(f"{len(df)} active opportunities")
-    for _, row in df.head(24).iterrows():
-        _render_value_play_card(row)
+    if df.empty:
+        st.markdown(
+            """
+            <div class="pq-value-card" style="text-align:center;padding:2rem 1.25rem;">
+                <p class="pq-event-name" style="margin-bottom:0.5rem;">⛔ No Action</p>
+                <p style="color:#8b949e;font-size:0.95rem;line-height:1.5;margin:0;">
+                    No mathematically viable anomalies detected. Maintain bankroll discipline.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.caption(f"{len(df)} elite anomal{'y' if len(df) == 1 else 'ies'} on slate")
+    for rank, (_, row) in enumerate(df.iterrows(), start=1):
+        _render_value_play_card(row, rank)
 
 
 def render_audit_my_bet() -> None:
