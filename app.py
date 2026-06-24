@@ -2882,6 +2882,29 @@ st.markdown("""
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+
+    /* ── Quant terminal theme ── */
+    .stApp {
+        background-color: #050505 !important;
+        color: #e5e7eb !important;
+    }
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] > div {
+        background-color: #0A0C10 !important;
+    }
+
+    /* Stylized container tiles */
+    [data-testid="stMetricContainer"] {
+        background-color: #0E121A !important;
+        border: 1px solid #1F2937 !important;
+        border-radius: 6px !important;
+        padding: 10px 15px !important;
+    }
+    div.stExpander {
+        background-color: #0A0C10 !important;
+        border: 1px solid #1F2937 !important;
+        border-radius: 6px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
