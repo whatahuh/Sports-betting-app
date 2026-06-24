@@ -121,6 +121,37 @@ def _in_strike_zone(no_price: float) -> bool:
     return STRIKE_LO <= no_price <= STRIKE_HI
 
 
+def _parse_kalshi_market_row(market: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one Kalshi V2 market record (unchanged pricing logic)."""
+    yes_ask = parse_dollar_string(market.get("yes_ask_dollars"))
+    yes_bid = parse_dollar_string(market.get("yes_bid_dollars"))
+    kalshi_yes_cost = yes_ask
+    kalshi_no_cost = (1.0 - yes_bid) if yes_bid is not None else None
+    title = market.get("title") or market.get("ticker") or "—"
+    ticker = market.get("ticker") or title
+    return {
+        "ticker": ticker,
+        "Title": title,
+        "Yes Ask": kalshi_yes_cost,
+        "Yes Bid": yes_bid,
+        "Kalshi YES Cost": kalshi_yes_cost,
+        "Kalshi NO Cost": kalshi_no_cost,
+        "event_ticker": market.get("event_ticker") or "",
+        "series_ticker": market.get("series_ticker") or ticker.split("-")[0],
+    }
+
+
+KALSHI_PROP_SERIES = (
+    "KXMLBHIT",
+    "KXNBAH2H3PT",
+    "KXNFLANYTD",
+    "KXNFLRSHYDS",
+    "KXNBAPTS",
+    "KXNBAREB",
+    "KXNBAAST",
+)
+
+
 @st.cache_data(ttl=CACHE_TTL, show_spinner="Loading live markets...")
 def fetch_polymarket_markets() -> pd.DataFrame:
     payload = _api_get(
@@ -149,6 +180,12 @@ def fetch_polymarket_markets() -> pd.DataFrame:
             or market.get("slug")
             or "—"
         )
+        events = market.get("events") or []
+        event_title = ""
+        if events and isinstance(events[0], dict):
+            event_title = events[0].get("title") or ""
+        slug = market.get("slug") or ""
+        group_item = market.get("groupItemTitle") or ""
 
         rows.append(
             {
@@ -158,6 +195,9 @@ def fetch_polymarket_markets() -> pd.DataFrame:
                 "No Price": no_price,
                 "Volume": volume if volume is not None else 0.0,
                 "Liquidity": liquidity if liquidity is not None else 0.0,
+                "Event Title": event_title,
+                "Slug": slug,
+                "Group Item": group_item,
             }
         )
 
@@ -177,27 +217,32 @@ def fetch_kalshi_markets() -> pd.DataFrame:
     for market in markets:
         if not isinstance(market, dict):
             continue
+        rows.append(_parse_kalshi_market_row(market))
 
-        yes_ask = parse_dollar_string(market.get("yes_ask_dollars"))
-        yes_bid = parse_dollar_string(market.get("yes_bid_dollars"))
+    return pd.DataFrame(rows)
 
-        kalshi_yes_cost = yes_ask
-        kalshi_no_cost = (1.0 - yes_bid) if yes_bid is not None else None
 
-        title = market.get("title") or market.get("ticker") or "—"
-        ticker = market.get("ticker") or title
-
-        rows.append(
-            {
-                "ticker": ticker,
-                "Title": title,
-                "Yes Ask": kalshi_yes_cost,
-                "Yes Bid": yes_bid,
-                "Kalshi YES Cost": kalshi_yes_cost,
-                "Kalshi NO Cost": kalshi_no_cost,
-            }
-        )
-
+@st.cache_data(ttl=CACHE_TTL, show_spinner="Loading player props...")
+def fetch_kalshi_player_props() -> pd.DataFrame:
+    """Supplementary Kalshi series fetch for player-prop style markets."""
+    seen: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for series in KALSHI_PROP_SERIES:
+        try:
+            payload = _api_get(
+                KALSHI_MARKETS_URL,
+                {"status": "open", "series_ticker": series, "limit": 100},
+            )
+            for market in payload.get("markets", []):
+                if not isinstance(market, dict):
+                    continue
+                ticker = str(market.get("ticker") or "")
+                if not ticker or ticker in seen:
+                    continue
+                seen.add(ticker)
+                rows.append(_parse_kalshi_market_row(market))
+        except requests.exceptions.RequestException:
+            continue
     return pd.DataFrame(rows)
 
 
@@ -214,6 +259,159 @@ def _filter_value_plays(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 ODDS_FORMATS = ("Cents", "Percentage", "American")
 PICKER_PAGE_SIZE = 6
+EXPLORE_PAGE_SIZE = 8
+
+EXPLORE_CATEGORIES = (
+    "All",
+    "Sports",
+    "Player Props",
+    "Politics",
+    "Crypto",
+    "Pop Culture",
+)
+EXPLORE_SPORTS_TYPES = ("All", "Matchups", "Game Lines", "Futures", "Parlays")
+EXPLORE_SOURCES = ("Both", "Polymarket", "Kalshi")
+
+
+def _classify_market(
+    title: str,
+    *,
+    source: str = "",
+    series_ticker: str = "",
+    event_title: str = "",
+) -> tuple[str, str]:
+    """Presentation-only taxonomy for Pikkit-style browse navigation."""
+    blob = f"{title} {event_title} {series_ticker} {source}".lower()
+    series_u = series_ticker.upper()
+
+    if series_u in KALSHI_PROP_SERIES or any(
+        k in blob for k in (": 1+", ": 2+", ": 3+", " hits?", " strikeouts", " touchdowns", " points?")
+    ):
+        return "Player Props", "Props"
+
+    if "kxmv" in series_u.lower() or title.count(",") >= 3:
+        return "Sports", "Parlays"
+
+    sports_kw = (
+        "mlb", "nfl", "nba", "nhl", "fifa", "world cup", "super bowl", "mvp",
+        "championship", "playoff", " vs ", "beat", "win the", "match", "game",
+        "serie a", "premier league", "march madness", "pga", "ufc", "boxing",
+    )
+    futures_kw = ("before 20", "by 20", "in 202", "203", "win the 202", "nomination")
+
+    if any(k in blob for k in sports_kw):
+        if any(k in blob for k in futures_kw):
+            return "Sports", "Futures"
+        if any(k in blob for k in ("o/u", "over", "under", "spread", "total", "moneyline")):
+            return "Sports", "Game Lines"
+        return "Sports", "Matchups"
+
+    politics_kw = (
+        "president", "election", "congress", "senate", "trump", "biden",
+        "democrat", "republican", "nomination", "governor", "parliament",
+    )
+    crypto_kw = ("bitcoin", "btc", "ethereum", "eth", "crypto", "solana", "token")
+    pop_kw = ("album", "gta", "oscar", "grammy", "movie", "taylor swift", "kardashian", "rihanna")
+
+    if any(k in blob for k in politics_kw):
+        return "Politics", "General"
+    if any(k in blob for k in crypto_kw):
+        return "Crypto", "General"
+    if any(k in blob for k in pop_kw):
+        return "Pop Culture", "General"
+    return "Other", "General"
+
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner="Building market catalog...")
+def build_explore_catalog() -> pd.DataFrame:
+    """Unified Polymarket + Kalshi browse index for search and category navigation."""
+    frames: list[pd.DataFrame] = []
+
+    try:
+        poly = fetch_polymarket_markets()
+        if not poly.empty:
+            p = poly.dropna(subset=["Yes Price", "No Price"]).copy()
+            cat_sub = p.apply(
+                lambda r: _classify_market(
+                    str(r["Question"]),
+                    source="polymarket",
+                    event_title=str(r.get("Event Title", "")),
+                ),
+                axis=1,
+                result_type="expand",
+            )
+            p["Category"] = cat_sub[0]
+            p["Subcategory"] = cat_sub[1]
+            p["Source"] = "Polymarket"
+            p["Catalog ID"] = "poly:" + p["id"].astype(str)
+            p["Title"] = p["Question"]
+            frames.append(
+                p[
+                    [
+                        "Catalog ID", "Source", "id", "Title", "Yes Price", "No Price",
+                        "Volume", "Category", "Subcategory", "Event Title",
+                    ]
+                ]
+            )
+    except Exception:
+        pass
+
+    kalshi_frames: list[pd.DataFrame] = []
+    try:
+        kalshi_frames.append(fetch_kalshi_markets())
+    except Exception:
+        pass
+    try:
+        props = fetch_kalshi_player_props()
+        if not props.empty:
+            kalshi_frames.append(props)
+    except Exception:
+        pass
+
+    if kalshi_frames:
+        k = pd.concat(kalshi_frames, ignore_index=True).drop_duplicates(subset=["ticker"])
+        k = k.dropna(subset=["Kalshi YES Cost", "Kalshi NO Cost"]).copy()
+        k["Yes Price"] = k["Kalshi YES Cost"]
+        k["No Price"] = k["Kalshi NO Cost"]
+        k["Volume"] = 0.0
+        cat_sub = k.apply(
+            lambda r: _classify_market(
+                str(r["Title"]),
+                source="kalshi",
+                series_ticker=str(r.get("series_ticker", "")),
+            ),
+            axis=1,
+            result_type="expand",
+        )
+        k["Category"] = cat_sub[0]
+        k["Subcategory"] = cat_sub[1]
+        k["Source"] = "Kalshi"
+        k["Catalog ID"] = "kalshi:" + k["ticker"].astype(str)
+        k["id"] = k["ticker"]
+        k["Event Title"] = ""
+        frames.append(
+            k[
+                [
+                    "Catalog ID", "Source", "id", "Title", "Yes Price", "No Price",
+                    "Volume", "Category", "Subcategory", "Event Title",
+                ]
+            ]
+        )
+
+    if not frames:
+        return pd.DataFrame()
+
+    catalog = pd.concat(frames, ignore_index=True)
+    catalog["Search Blob"] = (
+        catalog["Title"].astype(str)
+        + " "
+        + catalog["Event Title"].astype(str)
+        + " "
+        + catalog["Category"].astype(str)
+        + " "
+        + catalog["Subcategory"].astype(str)
+    ).str.lower()
+    return catalog.sort_values(["Category", "Title"]).reset_index(drop=True)
 
 
 def _init_session() -> None:
@@ -223,6 +421,16 @@ def _init_session() -> None:
         st.session_state.poly_selected = None
     if "kalshi_selected" not in st.session_state:
         st.session_state.kalshi_selected = None
+    if "global_search_query" not in st.session_state:
+        st.session_state.global_search_query = ""
+    if "explore_category" not in st.session_state:
+        st.session_state.explore_category = "All"
+    if "explore_sports_type" not in st.session_state:
+        st.session_state.explore_sports_type = "All"
+    if "explore_source" not in st.session_state:
+        st.session_state.explore_source = "Both"
+    if "explore_page" not in st.session_state:
+        st.session_state.explore_page = 0
 
 
 def get_odds_format() -> str:
@@ -342,6 +550,8 @@ def render_searchable_picker(
         placeholder="Search by keyword…",
         label_visibility="collapsed",
     ).lower().strip()
+    if not query:
+        query = st.session_state.get("global_search_query", "").strip().lower()
 
     filtered = [(k, v) for k, v in options.items() if not query or query in v.lower()]
     filtered.sort(key=lambda item: len(item[1]))
@@ -752,6 +962,65 @@ def _inject_global_css() -> None:
                 border-radius: 10px;
                 padding: 3px;
             }
+
+            /* Pikkit-style explore feed */
+            .pq-search-hero {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 14px;
+                padding: 0.65rem 0.85rem;
+                margin-bottom: 0.55rem;
+            }
+            .pq-feed-row {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 12px;
+                padding: 0.75rem 0.85rem;
+                margin-bottom: 0.45rem;
+            }
+            .pq-feed-meta {
+                display: block;
+                font-size: 0.65rem;
+                font-weight: 700;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.25rem;
+            }
+            .pq-feed-title {
+                display: block;
+                font-size: 0.88rem;
+                font-weight: 700;
+                color: #f0f2f5;
+                line-height: 1.35;
+            }
+            .pq-feed-event {
+                display: block;
+                font-size: 0.72rem;
+                color: #6e7681;
+                margin-top: 0.2rem;
+            }
+            .pq-odd-pill {
+                display: block;
+                text-align: center;
+                padding: 0.55rem 0.35rem;
+                border-radius: 10px;
+                font-weight: 800;
+                font-size: 0.95rem;
+            }
+            .pq-odd-yes {
+                background: #1c2d41;
+                color: #58a6ff;
+                border: 1px solid #30363d;
+            }
+            .pq-odd-no {
+                background: #1a2332;
+                color: #c9d1d9;
+                border: 1px solid #30363d;
+            }
+            .pq-nav-scroll .stPills {
+                overflow-x: auto;
+            }
         </style>
         """,
         unsafe_allow_html=True,
@@ -861,6 +1130,8 @@ def render_top_value_plays() -> None:
         placeholder="Search by keyword…",
         label_visibility="collapsed",
     )
+    if not market_search.strip():
+        market_search = st.session_state.get("global_search_query", "")
     if market_search.strip():
         df = df[df["Question"].str.contains(market_search.strip(), case=False, na=False)].copy()
         if df.empty:
@@ -1086,6 +1357,197 @@ def render_trap_detector() -> None:
         )
 
 
+def render_global_search_bar() -> str:
+    """Pikkit-style persistent search (synced across Explore + pickers)."""
+    st.markdown('<div class="pq-search-hero">', unsafe_allow_html=True)
+    query = st.text_input(
+        "Search markets",
+        key="global_search_query",
+        placeholder="🔍  Search bets, players, teams, events…",
+        label_visibility="collapsed",
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    return (query or "").strip().lower()
+
+
+def _filter_explore_catalog(
+    catalog: pd.DataFrame,
+    query: str,
+    category: str,
+    sports_type: str,
+    source: str,
+) -> pd.DataFrame:
+    df = catalog.copy()
+    if source != "Both":
+        df = df[df["Source"] == source]
+    if category == "Player Props":
+        df = df[df["Category"] == "Player Props"]
+    elif category != "All":
+        df = df[df["Category"] == category]
+    if category in ("Sports", "Player Props") and sports_type != "All":
+        if category != "Player Props":
+            df = df[df["Subcategory"] == sports_type]
+    if query:
+        df = df[df["Search Blob"].str.contains(query, na=False, regex=False)]
+    return df.reset_index(drop=True)
+
+
+def _sync_selection_from_catalog(row: pd.Series) -> None:
+    """Push explore selection into arb pickers."""
+    if row["Source"] == "Polymarket":
+        st.session_state.poly_selected = row["id"]
+    else:
+        st.session_state.kalshi_selected = row["id"]
+
+
+def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
+    """Pikkit-style scannable rows: market left, YES/NO odds right."""
+    for idx, row in page_df.iterrows():
+        yes_odds = format_odds_display(float(row["Yes Price"]), odds_fmt)
+        no_odds = format_odds_display(float(row["No Price"]), odds_fmt)
+        event_line = ""
+        if row.get("Event Title") and str(row["Event Title"]).strip():
+            event_line = (
+                f'<span class="pq-feed-event">{html.escape(str(row["Event Title"]))}</span>'
+            )
+        st.markdown(
+            f"""
+            <div class="pq-feed-row">
+                <span class="pq-feed-meta">{html.escape(str(row["Source"]))} ·
+                {html.escape(str(row["Category"]))} · {html.escape(str(row["Subcategory"]))}</span>
+                <span class="pq-feed-title">{html.escape(str(row["Title"]))}</span>
+                {event_line}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        b1, b2, b3 = st.columns([1, 1, 1.3])
+        with b1:
+            st.markdown(
+                f'<div class="pq-odd-pill pq-odd-yes">YES {html.escape(yes_odds)}</div>',
+                unsafe_allow_html=True,
+            )
+        with b2:
+            st.markdown(
+                f'<div class="pq-odd-pill pq-odd-no">NO {html.escape(no_odds)}</div>',
+                unsafe_allow_html=True,
+            )
+        with b3:
+            if st.button("Select →", key=f"explore_pick_{row['Catalog ID']}_{idx}", use_container_width=True):
+                _sync_selection_from_catalog(row)
+                st.session_state.explore_last_pick = str(row["Title"])
+                st.rerun()
+
+
+def render_explore_hub() -> None:
+    st.markdown("### 🔍 Explore")
+    st.markdown(
+        '<p style="color:#8b949e;font-size:0.82rem;margin-top:-0.5rem;">'
+        "Browse like Pikkit — search any bet, filter by sport or player props, tap to select."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    query = render_global_search_bar()
+
+    if st.button("↻ Refresh Catalog", key="refresh_explore"):
+        build_explore_catalog.clear()
+        fetch_polymarket_markets.clear()
+        fetch_kalshi_markets.clear()
+        fetch_kalshi_player_props.clear()
+        st.rerun()
+
+    try:
+        catalog = build_explore_catalog()
+    except Exception:
+        st.error("Could not load the market catalog. Try refreshing.")
+        return
+
+    if catalog.empty:
+        st.warning("No markets available to explore right now.")
+        return
+
+    category = st.pills(
+        "Category",
+        options=list(EXPLORE_CATEGORIES),
+        key="explore_category",
+        label_visibility="collapsed",
+    )
+
+    sports_type = "All"
+    if category in ("Sports", "Player Props"):
+        sports_type = st.pills(
+            "Market Type",
+            options=list(EXPLORE_SPORTS_TYPES),
+            key="explore_sports_type",
+            label_visibility="collapsed",
+        )
+
+    source = st.pills(
+        "Source",
+        options=list(EXPLORE_SOURCES),
+        key="explore_source",
+        label_visibility="collapsed",
+    )
+
+    filtered = _filter_explore_catalog(
+        catalog,
+        query,
+        category or "All",
+        sports_type or "All",
+        source or "Both",
+    )
+
+    if filtered.empty:
+        st.info("No markets match your filters. Try a different search or category.")
+        return
+
+    odds_fmt = get_odds_format()
+    total_pages = max(1, (len(filtered) + EXPLORE_PAGE_SIZE - 1) // EXPLORE_PAGE_SIZE)
+    page = min(st.session_state.explore_page, total_pages - 1)
+    st.session_state.explore_page = page
+    start = page * EXPLORE_PAGE_SIZE
+    page_df = filtered.iloc[start : start + EXPLORE_PAGE_SIZE]
+
+    st.caption(f"{len(filtered)} markets · showing {start + 1}–{start + len(page_df)}")
+
+    if st.session_state.get("explore_last_pick"):
+        st.success(f"Selected: {st.session_state.explore_last_pick}")
+
+    _render_matchup_feed(page_df, odds_fmt)
+
+    n1, n2, n3 = st.columns([1, 2, 1])
+    with n1:
+        if st.button("← Prev", key="explore_prev", disabled=page == 0):
+            st.session_state.explore_page = page - 1
+            st.rerun()
+    with n2:
+        st.markdown(
+            f'<p class="pq-page-indicator">Page {page + 1} / {total_pages}</p>',
+            unsafe_allow_html=True,
+        )
+    with n3:
+        if st.button("Next →", key="explore_next", disabled=page >= total_pages - 1):
+            st.session_state.explore_page = page + 1
+            st.rerun()
+
+    st.markdown("#### Quick Actions")
+    qa1, qa2 = st.columns(2)
+    with qa1:
+        if st.button("⚖️ Audit Selected Bet", use_container_width=True):
+            st.session_state.explore_action_hint = "Switch to the **⚖️ Audit My Bet** tab to run the math."
+            st.rerun()
+    with qa2:
+        if st.button("💰 Cross-Book Arb", use_container_width=True):
+            st.session_state.explore_action_hint = (
+                "Switch to the **💰 Risk-Free Arbs** tab — your pick is pre-loaded."
+            )
+            st.rerun()
+
+    if st.session_state.get("explore_action_hint"):
+        st.info(st.session_state.explore_action_hint)
+
+
 def _render_arb_split(
     poly_side: str,
     poly_price: float,
@@ -1123,7 +1585,7 @@ def _render_arb_split(
         {banner}
         """,
         unsafe_allow_html=True,
-    )
+        )
 
 
 def render_risk_free_arbs() -> None:
@@ -1138,11 +1600,16 @@ def render_risk_free_arbs() -> None:
     if st.button("↻ Refresh Prices", key="refresh_arb"):
         fetch_polymarket_markets.clear()
         fetch_kalshi_markets.clear()
+        fetch_kalshi_player_props.clear()
         st.rerun()
 
     try:
         poly_df = fetch_polymarket_markets()
-        kalshi_df = fetch_kalshi_markets()
+        kalshi_main = fetch_kalshi_markets()
+        kalshi_props = fetch_kalshi_player_props()
+        kalshi_df = pd.concat([kalshi_main, kalshi_props], ignore_index=True).drop_duplicates(
+            subset=["ticker"]
+        )
     except requests.exceptions.RequestException:
         st.error("Unable to reach one of the exchanges. Try again shortly.")
         return
@@ -1258,14 +1725,18 @@ with st.container():
 
 
 def main() -> None:
-    tab_value, tab_audit, tab_trap, tab_arb = st.tabs(
+    tab_explore, tab_value, tab_audit, tab_trap, tab_arb = st.tabs(
         [
+            "🔍 Explore",
             "🔥 Top Value Plays",
             "⚖️ Audit My Bet",
             "🚨 Trap Detector",
             "💰 Risk-Free Arbs",
         ]
     )
+
+    with tab_explore:
+        render_explore_hub()
 
     with tab_value:
         render_top_value_plays()
