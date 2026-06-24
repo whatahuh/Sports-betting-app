@@ -212,6 +212,197 @@ def _filter_value_plays(raw_df: pd.DataFrame) -> pd.DataFrame:
 # Presentation layer — plain English, visual hierarchy only
 # --------------------------------------------------------------------------- #
 
+ODDS_FORMATS = ("Cents", "Percentage", "American")
+PICKER_PAGE_SIZE = 6
+
+
+def _init_session() -> None:
+    if "odds_format" not in st.session_state:
+        st.session_state.odds_format = "American"
+    if "poly_selected" not in st.session_state:
+        st.session_state.poly_selected = None
+    if "kalshi_selected" not in st.session_state:
+        st.session_state.kalshi_selected = None
+
+
+def get_odds_format() -> str:
+    return str(st.session_state.get("odds_format", "American")).lower()
+
+
+def _price_to_american(prob: float) -> str:
+    if prob <= 0 or prob >= 1:
+        return "—"
+    if prob >= 0.5:
+        return f"{-100 * prob / (1 - prob):.0f}"
+    return f"+{100 * (1 - prob) / prob:.0f}"
+
+
+def format_odds_display(price: Optional[float], fmt: Optional[str] = None) -> str:
+    """Render a contract price in the user's chosen odds format."""
+    if price is None or pd.isna(price) or price <= 0 or price >= 1:
+        return "—"
+    mode = (fmt or get_odds_format()).lower()
+    if mode == "cents":
+        return f"{price * 100:.1f}¢"
+    if mode == "percentage":
+        return f"{price * 100:.1f}%"
+    return _price_to_american(price)
+
+
+def parse_offered_odds(raw: Any, input_fmt: str) -> Optional[float]:
+    """Convert user-entered odds → share price in cents (for EV engine)."""
+    mode = input_fmt.lower()
+    if mode == "american":
+        text = str(raw).strip().replace(" ", "")
+        if not text:
+            return None
+        if text.startswith("+"):
+            text = text[1:]
+        try:
+            american = float(text)
+        except ValueError:
+            return None
+        if american == 0:
+            return None
+        prob = (100.0 / (american + 100.0)) if american > 0 else (
+            abs(american) / (abs(american) + 100.0)
+        )
+        return prob * 100.0
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if mode == "percentage":
+        return val
+    return val  # cents
+
+
+def _filter_kalshi_tradeable(df: pd.DataFrame) -> pd.DataFrame:
+    """Presentation filter: drop zero-priced combo legs; prefer readable singles."""
+    priced = df.dropna(subset=["Kalshi YES Cost", "Kalshi NO Cost"]).copy()
+    tradeable = priced[
+        (priced["Kalshi YES Cost"] > 0.01)
+        & (priced["Kalshi YES Cost"] < 0.99)
+        & (priced["Kalshi NO Cost"] > 0.01)
+        & (priced["Kalshi NO Cost"] < 0.99)
+    ].copy()
+    pool = tradeable if not tradeable.empty else priced
+    pool = pool.copy()
+    pool["_title_len"] = pool["Title"].astype(str).str.len()
+    return pool.sort_values("_title_len").drop(columns=["_title_len"]).reset_index(drop=True)
+
+
+def _short_title(text: str, limit: int = 52) -> str:
+    clean = " ".join(str(text).split())
+    if len(clean) <= limit:
+        return clean
+    return clean[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+def render_odds_format_toggle() -> None:
+    st.markdown(
+        '<p class="pq-section-label">Odds Display</p>',
+        unsafe_allow_html=True,
+    )
+    st.segmented_control(
+        "Odds Display",
+        options=list(ODDS_FORMATS),
+        key="odds_format",
+        label_visibility="collapsed",
+    )
+
+
+def render_searchable_picker(
+    label: str,
+    options: dict[str, str],
+    session_key: str,
+    *,
+    show_prices: Optional[dict[str, str]] = None,
+) -> Optional[str]:
+    """
+  Mobile-friendly market picker: search → paginated tap-to-select cards.
+  Replaces native selectbox long-list UX.
+    """
+    if not options:
+        st.warning(f"No {label} markets available.")
+        return None
+
+    ids = list(options.keys())
+    if st.session_state.get(session_key) not in options:
+        st.session_state[session_key] = ids[0]
+
+    page_key = f"{session_key}_page"
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 0
+
+    st.markdown(f'<p class="pq-section-label">{label}</p>', unsafe_allow_html=True)
+    query = st.text_input(
+        f"Search {label}",
+        key=f"{session_key}_search",
+        placeholder="Search by keyword…",
+        label_visibility="collapsed",
+    ).lower().strip()
+
+    filtered = [(k, v) for k, v in options.items() if not query or query in v.lower()]
+    filtered.sort(key=lambda item: len(item[1]))
+
+    if not filtered:
+        st.caption("No matches — try a different search.")
+        return st.session_state.get(session_key)
+
+    total_pages = max(1, (len(filtered) + PICKER_PAGE_SIZE - 1) // PICKER_PAGE_SIZE)
+    page = min(st.session_state[page_key], total_pages - 1)
+    st.session_state[page_key] = page
+    start = page * PICKER_PAGE_SIZE
+    page_items = filtered[start : start + PICKER_PAGE_SIZE]
+
+    st.caption(f"{len(filtered)} results · tap to select")
+
+    for mid, title in page_items:
+        selected = st.session_state[session_key] == mid
+        price_hint = ""
+        if show_prices and mid in show_prices:
+            price_hint = f" · {show_prices[mid]}"
+        card_cls = "pq-pick-card pq-pick-selected" if selected else "pq-pick-card"
+        st.markdown(
+            f'<div class="{card_cls}"><span class="pq-pick-title">'
+            f'{html.escape(_short_title(title))}</span>'
+            f'<span class="pq-pick-meta">{html.escape(price_hint.lstrip(" · "))}</span></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "✓ Selected" if selected else "Select",
+            key=f"pick_{session_key}_{mid}_{page}",
+            use_container_width=True,
+            type="primary" if selected else "secondary",
+        ):
+            st.session_state[session_key] = mid
+            st.rerun()
+
+    nav1, nav2, nav3 = st.columns([1, 2, 1])
+    with nav1:
+        if st.button("←", key=f"{session_key}_prev", disabled=page == 0):
+            st.session_state[page_key] = page - 1
+            st.rerun()
+    with nav2:
+        st.markdown(
+            f'<p class="pq-page-indicator">Page {page + 1} of {total_pages}</p>',
+            unsafe_allow_html=True,
+        )
+    with nav3:
+        if st.button("→", key=f"{session_key}_next", disabled=page >= total_pages - 1):
+            st.session_state[page_key] = page + 1
+            st.rerun()
+
+    sel_id = st.session_state[session_key]
+    st.markdown(
+        f'<div class="pq-selected-banner"><strong>Selected:</strong> '
+        f'{html.escape(options.get(sel_id, ""))}</div>',
+        unsafe_allow_html=True,
+    )
+    return sel_id
+
+
 def _inject_global_css() -> None:
     st.markdown(
         """
@@ -480,21 +671,94 @@ def _inject_global_css() -> None:
                 border-color: #21262d;
                 margin: 0.75rem 0;
             }
+
+            /* Section labels & picker */
+            .pq-section-label {
+                font-size: 0.72rem;
+                font-weight: 700;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin: 0.65rem 0 0.35rem;
+            }
+            .pq-pick-card {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 10px;
+                padding: 0.55rem 0.75rem;
+                margin-bottom: 0.25rem;
+            }
+            .pq-pick-selected {
+                border-color: #58a6ff;
+                background: rgba(88,166,255,0.08);
+            }
+            .pq-pick-title {
+                display: block;
+                font-size: 0.84rem;
+                font-weight: 600;
+                color: #f0f2f5;
+                line-height: 1.35;
+            }
+            .pq-pick-meta {
+                display: block;
+                font-size: 0.72rem;
+                color: #58a6ff;
+                font-weight: 700;
+                margin-top: 0.15rem;
+            }
+            .pq-page-indicator {
+                text-align: center;
+                font-size: 0.75rem;
+                color: #8b949e;
+                margin: 0.35rem 0 0;
+            }
+            .pq-selected-banner {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 10px;
+                padding: 0.65rem 0.8rem;
+                font-size: 0.78rem;
+                color: #c9d1d9;
+                line-height: 1.4;
+                margin: 0.5rem 0 0.75rem;
+            }
+            .pq-odds-bar {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 12px;
+                padding: 0.55rem 0.75rem 0.35rem;
+                margin-bottom: 0.65rem;
+            }
+
+            /* Tactile buttons */
+            .stButton > button {
+                border-radius: 10px !important;
+                font-weight: 600 !important;
+                min-height: 2.35rem;
+            }
+            .stButton > button[kind="secondary"] {
+                background: #21262d !important;
+                border: 1px solid #30363d !important;
+                color: #c9d1d9 !important;
+            }
+            .stButton > button[kind="primary"] {
+                background: #1f6feb !important;
+                border: 1px solid #388bfd !important;
+            }
+
+            /* Segmented control polish */
+            [data-testid="stSegmentedControl"] {
+                background: #0d1117;
+                border-radius: 10px;
+                padding: 3px;
+            }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _price_to_american(prob: float) -> str:
-    if prob <= 0 or prob >= 1:
-        return "—"
-    if prob >= 0.5:
-        return f"{-100 * prob / (1 - prob):.0f}"
-    return f"+{100 * (1 - prob) / prob:.0f}"
-
-
-def _build_display_grid(df: pd.DataFrame) -> pd.DataFrame:
+def _build_display_grid(df: pd.DataFrame, odds_fmt: str) -> pd.DataFrame:
     """Map backend rows → plain-English scannable columns (presentation only)."""
     rows: list[dict[str, Any]] = []
     for _, r in df.iterrows():
@@ -506,13 +770,13 @@ def _build_display_grid(df: pd.DataFrame) -> pd.DataFrame:
         if in_zone:
             play = "🟢 Easy Money Compounding Play — BUY NO"
         else:
-            play = f"BUY NO @ ${no_p:.2f}"
+            play = f"BUY NO @ {format_odds_display(no_p, odds_fmt)}"
 
         rows.append(
             {
                 "Matchup / Market": r["Question"],
                 "The Recommended Play": play,
-                "Implied Odds": _price_to_american(no_p),
+                "Implied Odds": format_odds_display(no_p, odds_fmt),
                 "Our Model Win Chance %": round(model_win, 1),
                 "EV Edge %": round(ev_edge, 2),
                 "_in_zone": in_zone,
@@ -530,7 +794,7 @@ def _highlight_compound_plays(row: pd.Series) -> list[str]:
     return [style] * len(row)
 
 
-def _render_compound_cards(df: pd.DataFrame) -> None:
+def _render_compound_cards(df: pd.DataFrame, odds_fmt: str) -> None:
     compound = df[df["No Price"].between(STRIKE_LO, STRIKE_HI)]
     if compound.empty:
         return
@@ -546,8 +810,8 @@ def _render_compound_cards(df: pd.DataFrame) -> None:
                 <p class="pq-card-title">{q}</p>
                 <div class="pq-card-row">
                     <span class="pq-badge pq-badge-green">Easy Money Compounding Play</span>
-                    <span class="pq-badge pq-badge-blue">NO @ ${no_p:.2f}</span>
-                    <span class="pq-stat">Odds <strong>{_price_to_american(no_p)}</strong></span>
+                    <span class="pq-badge pq-badge-blue">NO {format_odds_display(no_p, odds_fmt)}</span>
+                    <span class="pq-stat">Odds <strong>{format_odds_display(no_p, odds_fmt)}</strong></span>
                     <span class="pq-stat">Model <strong>{DISPLAY_MODEL_WIN_PCT:.1f}%</strong></span>
                     <span class="pq-stat">Edge <strong>{ev_edge:+.2f}%</strong></span>
                 </div>
@@ -591,16 +855,29 @@ def render_top_value_plays() -> None:
         st.warning("No qualifying plays right now. Check back when more volume hits the board.")
         return
 
+    market_search = st.text_input(
+        "Filter markets",
+        key="value_plays_search",
+        placeholder="Search by keyword…",
+        label_visibility="collapsed",
+    )
+    if market_search.strip():
+        df = df[df["Question"].str.contains(market_search.strip(), case=False, na=False)].copy()
+        if df.empty:
+            st.info("No markets match your search.")
+            return
+
     compound_count = int(df["No Price"].between(STRIKE_LO, STRIKE_HI).sum())
+    odds_fmt = get_odds_format()
 
     k1, k2, k3 = st.columns(3)
     k1.metric("Live Markets", f"{len(df)}")
     k2.metric("Compounding Plays", f"{compound_count}")
-    k3.metric("Best NO Price", f"${df['No Price'].iloc[0]:.2f}")
+    k3.metric("Best NO Price", format_odds_display(float(df["No Price"].iloc[0]), odds_fmt))
 
-    _render_compound_cards(df)
+    _render_compound_cards(df, odds_fmt)
 
-    display_df = _build_display_grid(df)
+    display_df = _build_display_grid(df, odds_fmt)
     show_cols = [
         "Matchup / Market",
         "The Recommended Play",
@@ -648,8 +925,9 @@ def render_audit_my_bet() -> None:
     )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
+
+    r1, r2 = st.columns(2)
+    with r1:
         true_win_prob = st.number_input(
             "Our Model's Win Probability (%)",
             min_value=0.0,
@@ -657,27 +935,57 @@ def render_audit_my_bet() -> None:
             value=77.5,
             step=0.5,
         )
-    with c2:
+    with r2:
         stake = st.number_input(
             "Your Planned Stake ($)",
             min_value=0.0,
             value=100.0,
             step=10.0,
         )
-    with c3:
-        share_price = st.number_input(
-            "Offered Bookmaker Odds (Cents or American)",
+
+    st.markdown('<p class="pq-section-label">Offered Odds Format</p>', unsafe_allow_html=True)
+    offered_fmt = st.segmented_control(
+        "Offered Odds Format",
+        options=list(ODDS_FORMATS),
+        default="Cents",
+        key="audit_odds_fmt",
+        label_visibility="collapsed",
+    )
+
+    if offered_fmt == "American":
+        odds_raw = st.text_input(
+            "Offered Bookmaker Odds",
+            value="+150",
+            placeholder="e.g. +150, -223, 150",
+            help="Enter American odds with or without the + sign.",
+        )
+        share_price = parse_offered_odds(odds_raw, "american")
+        if share_price is None:
+            st.error("Enter valid American odds (e.g. +150 or -223).")
+            st.markdown("</div>", unsafe_allow_html=True)
+            return
+    else:
+        default_val = 50.0
+        label = "Offered Price (¢)" if offered_fmt == "Cents" else "Implied Win Probability (%)"
+        odds_raw = st.number_input(
+            label,
             min_value=0.01,
             max_value=99.99,
-            value=50.0,
-            step=1.0,
-            help="Enter the share price in cents (e.g. 50 = 50¢ per share).",
+            value=default_val,
+            step=0.5,
         )
+        share_price = parse_offered_odds(odds_raw, offered_fmt.lower())
+        if share_price is None:
+            st.error("Enter a valid price between 0 and 100.")
+            st.markdown("</div>", unsafe_allow_html=True)
+            return
+
     st.markdown("</div>", unsafe_allow_html=True)
 
     ev_dollars, ev_yield_pct = _calc_ev_dollars(true_win_prob, stake, share_price)
     ev_ok = ev_yield_pct >= EV_THRESHOLD
     prob_ok = true_win_prob >= WIN_PROB_THRESHOLD
+    odds_display = format_odds_display(share_price / 100.0, offered_fmt.lower())
 
     if ev_ok and prob_ok:
         st.markdown(
@@ -688,7 +996,7 @@ def render_audit_my_bet() -> None:
                 <strong>${ev_dollars:+,.2f}</strong> expected value
                 (<strong>{ev_yield_pct:+.2f}%</strong> edge).</p>
                 <p style="margin-top:0.5rem;">Plant your limit order at
-                <strong>{share_price:.0f}¢</strong>.</p>
+                <strong>{odds_display}</strong>.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -786,7 +1094,10 @@ def _render_arb_split(
     net: float,
     roi: float,
     is_arb: bool,
+    odds_fmt: str,
 ) -> None:
+    poly_odds = format_odds_display(poly_price, odds_fmt)
+    kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
     banner = ""
     if is_arb:
         banner = f"""
@@ -802,11 +1113,11 @@ def _render_arb_split(
         <div class="pq-split">
             <div class="pq-split-side">
                 <div class="venue">Polymarket</div>
-                <div class="leg">Buy {poly_side} @ ${poly_price:.4f}</div>
+                <div class="leg">Buy {poly_side} @ {poly_odds}</div>
             </div>
             <div class="pq-split-side">
                 <div class="venue">Kalshi</div>
-                <div class="leg">Buy {kalshi_side} @ ${kalshi_price:.4f}</div>
+                <div class="leg">Buy {kalshi_side} @ {kalshi_odds}</div>
             </div>
         </div>
         {banner}
@@ -843,28 +1154,43 @@ def render_risk_free_arbs() -> None:
         return
 
     poly_priced = poly_df.dropna(subset=["Yes Price", "No Price"]).copy()
-    kalshi_priced = kalshi_df.dropna(subset=["Kalshi YES Cost", "Kalshi NO Cost"]).copy()
+    kalshi_priced = _filter_kalshi_tradeable(kalshi_df)
 
     if poly_priced.empty or kalshi_priced.empty:
         st.warning("Not enough priced contracts on both books right now.")
         return
 
-    poly_options = {row["id"]: _select_label(row["Question"]) for _, row in poly_priced.iterrows()}
-    kalshi_options = {row["ticker"]: _select_label(row["Title"]) for _, row in kalshi_priced.iterrows()}
+    odds_fmt = get_odds_format()
 
-    pick_l, pick_r = st.columns(2)
-    with pick_l:
-        poly_id = st.selectbox(
-            "Polymarket Event",
-            options=list(poly_options.keys()),
-            format_func=lambda k: poly_options[k],
-        )
-    with pick_r:
-        kalshi_ticker = st.selectbox(
-            "Kalshi Event",
-            options=list(kalshi_options.keys()),
-            format_func=lambda k: kalshi_options[k],
-        )
+    poly_options = {row["id"]: row["Question"] for _, row in poly_priced.iterrows()}
+    poly_prices = {
+        row["id"]: f"YES {format_odds_display(float(row['Yes Price']), odds_fmt)} · "
+        f"NO {format_odds_display(float(row['No Price']), odds_fmt)}"
+        for _, row in poly_priced.iterrows()
+    }
+    kalshi_options = {row["ticker"]: row["Title"] for _, row in kalshi_priced.iterrows()}
+    kalshi_prices = {
+        row["ticker"]: f"YES {format_odds_display(float(row['Kalshi YES Cost']), odds_fmt)} · "
+        f"NO {format_odds_display(float(row['Kalshi NO Cost']), odds_fmt)}"
+        for _, row in kalshi_priced.iterrows()
+    }
+
+    st.markdown("#### 1 · Choose Your Markets")
+    poly_id = render_searchable_picker(
+        "Polymarket Event",
+        poly_options,
+        "poly_selected",
+        show_prices=poly_prices,
+    )
+    kalshi_ticker = render_searchable_picker(
+        "Kalshi Event",
+        kalshi_options,
+        "kalshi_selected",
+        show_prices=kalshi_prices,
+    )
+
+    if not poly_id or not kalshi_ticker:
+        return
 
     poly_row = poly_priced.loc[poly_priced["id"] == poly_id].iloc[0]
     kalshi_row = kalshi_priced.loc[kalshi_priced["ticker"] == kalshi_ticker].iloc[0]
@@ -879,11 +1205,13 @@ def render_risk_free_arbs() -> None:
     cost_b = poly_no + kalshi_yes
     net_b, roi_b = _arb_opportunity(cost_b)
 
-    st.markdown("#### Strategy 1")
-    _render_arb_split("YES", poly_yes, "NO", kalshi_no, net_a, roi_a, cost_a < 1.0)
+    st.markdown("#### 2 · Arb Strategies")
 
-    st.markdown("#### Strategy 2")
-    _render_arb_split("NO", poly_no, "YES", kalshi_yes, net_b, roi_b, cost_b < 1.0)
+    tab_a, tab_b = st.tabs(["Strategy A", "Strategy B"])
+    with tab_a:
+        _render_arb_split("YES", poly_yes, "NO", kalshi_no, net_a, roi_a, cost_a < 1.0, odds_fmt)
+    with tab_b:
+        _render_arb_split("NO", poly_no, "YES", kalshi_yes, net_b, roi_b, cost_b < 1.0, odds_fmt)
 
     if cost_a >= 1.0 and cost_b >= 1.0:
         st.markdown(
@@ -911,6 +1239,7 @@ st.set_page_config(
 )
 
 _inject_global_css()
+_init_session()
 
 st.markdown(
     """
@@ -921,6 +1250,11 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+with st.container():
+    st.markdown('<div class="pq-odds-bar">', unsafe_allow_html=True)
+    render_odds_format_toggle()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def main() -> None:
