@@ -58,8 +58,8 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.2.0-arb-action-panel"
-GIT_SHA = "b556168+"
+APP_BUILD = "4.0.0-modern-ui"
+GIT_SHA = "ui-overhaul+"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
@@ -1155,192 +1155,433 @@ def _inject_global_css() -> None:
     st.markdown(
         """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+            :root {
+                --pq-bg:           #07080d;
+                --pq-bg-soft:      #0b0d14;
+                --pq-surface-1:    #11141d;
+                --pq-surface-2:    #161a25;
+                --pq-surface-3:    #1c2030;
+                --pq-border:       #232838;
+                --pq-border-strong:#2e3447;
+                --pq-text:         #f8fafc;
+                --pq-text-2:       #cbd5e1;
+                --pq-muted:        #94a3b8;
+                --pq-faint:        #64748b;
+                --pq-accent:       #818cf8;
+                --pq-accent-2:     #a78bfa;
+                --pq-cyan:         #22d3ee;
+                --pq-success:      #34d399;
+                --pq-success-2:    #10b981;
+                --pq-warning:      #fbbf24;
+                --pq-danger:       #f87171;
+                --pq-shadow-soft:  0 1px 0 rgba(255,255,255,0.04) inset,
+                                   0 12px 32px -16px rgba(0,0,0,0.6);
+                --pq-shadow-pop:   0 1px 0 rgba(255,255,255,0.06) inset,
+                                   0 18px 48px -18px rgba(99,102,241,0.35);
+                --pq-radius-sm:    8px;
+                --pq-radius:       12px;
+                --pq-radius-lg:    16px;
+                --pq-radius-xl:    20px;
+            }
 
             #MainMenu, header, footer, .stDeployButton {visibility: hidden; display: none;}
 
+            html, body, .stApp {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-feature-settings: 'cv11','ss01','ss03','tnum';
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+
             .stApp {
-                background: #000000;
-                color: #f0f2f5;
-                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                background: var(--pq-bg);
+                background-image:
+                    radial-gradient(ellipse 90% 60% at 8% -10%,  rgba(99,102,241,0.22), transparent 60%),
+                    radial-gradient(ellipse 70% 50% at 95% 0%,   rgba(34,211,238,0.14),  transparent 65%),
+                    radial-gradient(ellipse 80% 40% at 50% 110%, rgba(167,139,250,0.12), transparent 70%);
+                background-attachment: fixed;
+                color: var(--pq-text);
             }
 
             .block-container {
-                padding: 0.5rem 0.85rem 1.5rem;
-                max-width: 100%;
+                padding: 0.65rem 1rem 2rem;
+                max-width: 1180px;
             }
 
-            /* Compact top bar (replaces bulky hero) */
+            ::selection { background: rgba(129,140,248,0.35); color: #fff; }
+
+            ::-webkit-scrollbar { width: 10px; height: 10px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb {
+                background: var(--pq-border);
+                border-radius: 999px;
+                border: 2px solid transparent;
+                background-clip: padding-box;
+            }
+            ::-webkit-scrollbar-thumb:hover { background: var(--pq-border-strong); background-clip: padding-box; }
+
+            a, a:visited { color: var(--pq-accent); text-decoration: none; }
+            a:hover { color: #c7d2fe; text-decoration: underline; }
+            code, kbd, samp { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+
+            /* ── App header ─────────────────────────────────────────── */
             .pq-topbar {
+                position: relative;
                 display: flex;
-                align-items: baseline;
+                align-items: center;
                 justify-content: space-between;
                 flex-wrap: wrap;
-                gap: 0.35rem 0.75rem;
-                padding: 0.15rem 0 0.5rem;
-                margin-bottom: 0.35rem;
-                border-bottom: 1px solid #21262d;
+                gap: 0.5rem 1rem;
+                padding: 0.85rem 1.1rem;
+                margin: 0 0 0.8rem;
+                background:
+                    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)) ,
+                    linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(34,211,238,0.06) 100%),
+                    var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
+                box-shadow: var(--pq-shadow-soft);
+                overflow: hidden;
+            }
+            .pq-topbar::before {
+                content: "";
+                position: absolute; inset: 0 0 auto 0; height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(167,139,250,0.6), transparent);
             }
             .pq-topbar-brand {
-                font-size: 1rem;
-                font-weight: 800;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.65rem;
+                font-size: 1.05rem;
+                font-weight: 900;
                 letter-spacing: -0.02em;
                 color: #ffffff;
             }
+            .pq-brand-mark {
+                width: 30px; height: 30px;
+                display: inline-flex; align-items: center; justify-content: center;
+                border-radius: 9px;
+                background: linear-gradient(135deg, #6366f1 0%, #a78bfa 60%, #22d3ee 120%);
+                color: #fff; font-weight: 900; font-size: 0.95rem;
+                box-shadow: 0 8px 22px -8px rgba(99,102,241,0.7),
+                            inset 0 1px 0 rgba(255,255,255,0.25);
+            }
+            .pq-brand-name { letter-spacing: -0.02em; }
+            .pq-brand-tag {
+                font-size: 0.66rem; font-weight: 700; letter-spacing: 0.18em;
+                color: var(--pq-accent); text-transform: uppercase;
+                background: rgba(129,140,248,0.10);
+                border: 1px solid rgba(129,140,248,0.30);
+                padding: 0.18rem 0.45rem; border-radius: 999px;
+            }
             .pq-topbar-meta {
-                font-size: 0.72rem;
-                font-weight: 500;
-                color: #8b949e;
+                display: inline-flex; align-items: center; gap: 0.6rem;
+                font-size: 0.72rem; color: var(--pq-muted); font-weight: 500;
+            }
+            .pq-topbar-meta .dot {
+                width: 7px; height: 7px; border-radius: 999px;
+                background: var(--pq-success);
+                box-shadow: 0 0 0 4px rgba(52,211,153,0.15);
+                display: inline-block;
+                animation: pq-pulse 2.4s ease-in-out infinite;
+            }
+            @keyframes pq-pulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50%      { opacity: 0.55; transform: scale(1.25); }
             }
 
-            /* Header (legacy hero — unused) */
+            /* Legacy hero — kept for compatibility */
             .pq-hero {
-                background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: linear-gradient(135deg, var(--pq-surface-1) 0%, var(--pq-surface-2) 100%);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
                 padding: 0.85rem 1.1rem;
                 margin-bottom: 0.65rem;
             }
             .pq-hero h1 {
-                margin: 0;
-                font-size: 1.15rem;
-                font-weight: 800;
-                letter-spacing: -0.02em;
-                color: #ffffff;
+                margin: 0; font-size: 1.15rem; font-weight: 900;
+                letter-spacing: -0.02em; color: var(--pq-text);
             }
             .pq-hero p {
-                margin: 0.2rem 0 0;
-                font-size: 0.78rem;
-                color: #8b949e;
+                margin: 0.2rem 0 0; font-size: 0.78rem;
+                color: var(--pq-muted); font-weight: 500;
+            }
+
+            /* ── Status / build strip ───────────────────────────────── */
+            .pq-status-strip {
+                display: flex; align-items: center; gap: 0.6rem;
+                padding: 0.45rem 0.75rem;
+                margin: 0 0 0.75rem;
+                background: linear-gradient(90deg, rgba(52,211,153,0.10), rgba(129,140,248,0.06));
+                border: 1px solid rgba(52,211,153,0.30);
+                border-radius: 999px;
+                font-size: 0.72rem; color: var(--pq-text-2);
+                flex-wrap: wrap;
+            }
+            .pq-status-strip .pq-status-live {
+                font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+                color: var(--pq-success);
+            }
+            .pq-status-strip code {
+                color: var(--pq-accent); font-size: 0.72rem;
+                background: rgba(129,140,248,0.10);
+                padding: 0.05rem 0.4rem; border-radius: 6px;
+                border: 1px solid rgba(129,140,248,0.25);
+            }
+            .pq-status-strip .pq-status-dot {
+                width: 7px; height: 7px; border-radius: 999px;
+                background: var(--pq-success);
+                box-shadow: 0 0 0 4px rgba(52,211,153,0.18);
+                animation: pq-pulse 2.4s ease-in-out infinite;
+            }
+
+            /* ── Market Pulse KPI strip ─────────────────────────────── */
+            .pq-pulse-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.6rem;
+                margin: 0.25rem 0 1rem;
+            }
+            .pq-pulse-tile {
+                position: relative;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.75rem 0.9rem;
+                box-shadow: var(--pq-shadow-soft);
+                overflow: hidden;
+                transition: transform .18s ease, border-color .18s ease;
+            }
+            .pq-pulse-tile:hover { transform: translateY(-1px); border-color: var(--pq-border-strong); }
+            .pq-pulse-tile::before {
+                content: "";
+                position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+                background: linear-gradient(180deg, var(--pq-accent), var(--pq-accent-2));
+                opacity: 0.85;
+            }
+            .pq-pulse-tile.accent-emerald::before { background: linear-gradient(180deg, #34d399, #10b981); }
+            .pq-pulse-tile.accent-cyan::before    { background: linear-gradient(180deg, #22d3ee, #06b6d4); }
+            .pq-pulse-tile.accent-amber::before   { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+            .pq-pulse-tile.accent-rose::before    { background: linear-gradient(180deg, #fb7185, #f43f5e); }
+            .pq-pulse-label {
+                font-size: 0.62rem; font-weight: 800;
+                letter-spacing: 0.10em; text-transform: uppercase;
+                color: var(--pq-muted);
+                display: flex; align-items: center; gap: 0.35rem;
+            }
+            .pq-pulse-value {
+                font-size: 1.4rem; font-weight: 900;
+                color: var(--pq-text); letter-spacing: -0.02em;
+                margin: 0.18rem 0 0.1rem; line-height: 1.1;
+                font-variant-numeric: tabular-nums;
+            }
+            .pq-pulse-value.pos { color: var(--pq-success); }
+            .pq-pulse-value.neg { color: var(--pq-danger); }
+            .pq-pulse-sub  {
+                font-size: 0.7rem; color: var(--pq-faint); font-weight: 600;
+            }
+
+            /* ── Onboarding / how-it-works ──────────────────────────── */
+            .pq-onboard {
+                background: linear-gradient(135deg, rgba(99,102,241,0.10), rgba(34,211,238,0.05));
+                border: 1px solid rgba(129,140,248,0.30);
+                border-radius: var(--pq-radius-lg);
+                padding: 0.9rem 1rem;
+                margin: 0.1rem 0 1rem;
+                box-shadow: var(--pq-shadow-soft);
+            }
+            .pq-onboard-title {
+                font-size: 0.85rem; font-weight: 800;
+                color: var(--pq-text); margin: 0 0 0.55rem;
+                display: flex; align-items: center; gap: 0.45rem;
+                letter-spacing: -0.01em;
+            }
+            .pq-onboard-steps {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.5rem;
+            }
+            .pq-onboard-step {
+                background: var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.6rem 0.7rem;
+                display: flex; gap: 0.55rem; align-items: flex-start;
+            }
+            .pq-onboard-step .num {
+                width: 24px; height: 24px; border-radius: 999px;
+                background: linear-gradient(135deg, var(--pq-accent), var(--pq-accent-2));
+                color: #fff; font-weight: 900; font-size: 0.75rem;
+                display: inline-flex; align-items: center; justify-content: center;
+                flex-shrink: 0;
+                box-shadow: 0 6px 18px -8px rgba(99,102,241,0.6);
+            }
+            .pq-onboard-step .body { line-height: 1.4; }
+            .pq-onboard-step .body strong {
+                color: var(--pq-text); font-size: 0.82rem; display: block;
+                margin-bottom: 0.15rem;
+            }
+            .pq-onboard-step .body span {
+                color: var(--pq-muted); font-size: 0.74rem;
+            }
+
+            /* ── Tab header ─────────────────────────────────────────── */
+            .pq-tab-head {
+                display: flex; justify-content: space-between; align-items: center;
+                gap: 0.65rem; flex-wrap: wrap;
+                margin: 0.35rem 0 0.45rem;
+            }
+            .pq-tab-head h2 {
+                font-size: 1.15rem; font-weight: 900; letter-spacing: -0.02em;
+                color: var(--pq-text); margin: 0;
+                display: inline-flex; align-items: center; gap: 0.45rem;
+            }
+            .pq-tab-head .pq-tab-sub {
+                color: var(--pq-muted); font-size: 0.78rem; margin: 0.05rem 0 0;
                 font-weight: 500;
             }
+            .pq-tab-hint {
+                background: var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-left: 3px solid var(--pq-accent);
+                border-radius: var(--pq-radius);
+                padding: 0.55rem 0.75rem;
+                margin: 0 0 0.85rem;
+                font-size: 0.78rem;
+                color: var(--pq-text-2);
+                line-height: 1.45;
+            }
+            .pq-tab-hint strong { color: var(--pq-text); }
 
             /* Tabs */
             .stTabs [data-baseweb="tab-list"] {
-                gap: 6px;
-                background: transparent;
-                border-bottom: 1px solid #21262d;
-                padding-bottom: 0;
+                gap: 4px;
+                background: var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 4px;
+                box-shadow: var(--pq-shadow-soft);
             }
             .stTabs [data-baseweb="tab"] {
                 background: transparent;
-                color: #8b949e;
-                font-weight: 600;
+                color: var(--pq-muted);
+                font-weight: 700;
                 font-size: 0.82rem;
-                padding: 8px 14px;
-                border-radius: 8px 8px 0 0;
+                padding: 9px 14px;
+                border-radius: 9px;
                 border: none;
+                transition: color .15s ease, background .15s ease, transform .15s ease;
+            }
+            .stTabs [data-baseweb="tab"]:hover {
+                color: var(--pq-text); background: rgba(255,255,255,0.025);
             }
             .stTabs [aria-selected="true"] {
-                color: #58a6ff !important;
-                background: #161b22 !important;
-                border-bottom: 2px solid #58a6ff !important;
+                color: #ffffff !important;
+                background: linear-gradient(135deg, rgba(99,102,241,0.55), rgba(167,139,250,0.45)) !important;
+                box-shadow: 0 6px 18px -8px rgba(99,102,241,0.55),
+                            inset 0 1px 0 rgba(255,255,255,0.18) !important;
             }
+            .stTabs [data-baseweb="tab-highlight"] { display: none !important; }
+            .stTabs [data-baseweb="tab-border"] { display: none !important; }
 
             /* Cards */
             .pq-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 0.9rem 1rem;
-                margin-bottom: 0.55rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
+                padding: 0.9rem 1.05rem;
+                margin-bottom: 0.6rem;
+                box-shadow: var(--pq-shadow-soft);
+                transition: border-color .18s ease, transform .18s ease;
             }
+            .pq-card:hover { border-color: var(--pq-border-strong); }
             .pq-card-compound {
-                border-color: #238636;
-                background: linear-gradient(135deg, rgba(35,134,54,0.15) 0%, #161b22 60%);
-                box-shadow: 0 0 20px rgba(63,185,80,0.12);
+                border-color: rgba(52,211,153,0.45);
+                background: linear-gradient(135deg, rgba(52,211,153,0.18) 0%, var(--pq-surface-2) 70%);
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.10) inset,
+                            0 18px 40px -20px rgba(16,185,129,0.45);
             }
             .pq-card-title {
-                font-size: 0.92rem;
-                font-weight: 700;
-                color: #f0f2f5;
-                line-height: 1.35;
-                margin: 0 0 0.55rem;
+                font-size: 0.92rem; font-weight: 800; color: var(--pq-text);
+                line-height: 1.35; margin: 0 0 0.55rem;
+                letter-spacing: -0.01em;
             }
             .pq-card-row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.45rem;
-                align-items: center;
+                display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;
             }
 
             /* Badges */
             .pq-badge {
-                display: inline-block;
-                padding: 0.22rem 0.55rem;
-                border-radius: 20px;
+                display: inline-flex; align-items: center; gap: 0.3rem;
+                padding: 0.24rem 0.6rem;
+                border-radius: 999px;
                 font-size: 0.7rem;
-                font-weight: 700;
+                font-weight: 800;
                 letter-spacing: 0.02em;
                 white-space: nowrap;
             }
             .pq-badge-green {
-                background: rgba(63,185,80,0.22);
-                color: #3fb950;
-                border: 1px solid rgba(63,185,80,0.45);
+                background: rgba(52,211,153,0.14);
+                color: var(--pq-success);
+                border: 1px solid rgba(52,211,153,0.42);
             }
             .pq-badge-blue {
-                background: rgba(88,166,255,0.15);
-                color: #58a6ff;
-                border: 1px solid rgba(88,166,255,0.35);
+                background: rgba(129,140,248,0.14);
+                color: var(--pq-accent);
+                border: 1px solid rgba(129,140,248,0.40);
             }
             .pq-badge-grey {
-                background: #21262d;
-                color: #8b949e;
-                border: 1px solid #30363d;
+                background: rgba(148,163,184,0.10);
+                color: var(--pq-muted);
+                border: 1px solid var(--pq-border-strong);
             }
             .pq-badge-red {
-                background: rgba(248,81,73,0.15);
-                color: #f85149;
-                border: 1px solid rgba(248,81,73,0.35);
+                background: rgba(248,113,113,0.12);
+                color: var(--pq-danger);
+                border: 1px solid rgba(248,113,113,0.40);
             }
             .pq-stat {
-                font-size: 0.78rem;
-                color: #8b949e;
+                font-size: 0.78rem; color: var(--pq-muted);
+                font-variant-numeric: tabular-nums;
             }
-            .pq-stat strong {
-                color: #f0f2f5;
-                font-weight: 700;
-            }
+            .pq-stat strong { color: var(--pq-text); font-weight: 800; }
 
             /* Verdict containers */
             .pq-verdict-play {
-                background: linear-gradient(135deg, rgba(63,185,80,0.25) 0%, rgba(35,134,54,0.12) 100%);
-                border: 2px solid #3fb950;
-                border-radius: 14px;
+                position: relative;
+                background:
+                    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(52,211,153,0.25), transparent 70%),
+                    linear-gradient(135deg, rgba(52,211,153,0.16) 0%, rgba(16,185,129,0.06) 100%),
+                    var(--pq-surface-1);
+                border: 1px solid rgba(52,211,153,0.55);
+                border-radius: var(--pq-radius-lg);
                 padding: 1.25rem 1.35rem;
                 margin-top: 1rem;
-                box-shadow: 0 0 28px rgba(63,185,80,0.2);
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.12) inset,
+                            0 20px 50px -22px rgba(16,185,129,0.55);
             }
             .pq-verdict-play h2 {
-                margin: 0 0 0.35rem;
-                font-size: 1.35rem;
-                font-weight: 800;
-                color: #3fb950;
+                margin: 0 0 0.35rem; font-size: 1.35rem; font-weight: 900;
+                color: var(--pq-success); letter-spacing: -0.02em;
             }
             .pq-verdict-play p {
-                margin: 0;
-                font-size: 0.95rem;
-                color: #c9d1d9;
-                line-height: 1.5;
+                margin: 0; font-size: 0.95rem; color: var(--pq-text-2); line-height: 1.5;
             }
             .pq-verdict-pass {
-                background: #161b22;
-                border: 1px solid #30363d;
-                border-radius: 14px;
+                background: var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
                 padding: 1.25rem 1.35rem;
                 margin-top: 1rem;
             }
             .pq-verdict-pass h2 {
-                margin: 0 0 0.35rem;
-                font-size: 1.2rem;
-                font-weight: 800;
-                color: #8b949e;
+                margin: 0 0 0.35rem; font-size: 1.2rem; font-weight: 900;
+                color: var(--pq-muted);
             }
             .pq-verdict-pass p {
-                margin: 0;
-                font-size: 0.88rem;
-                color: #6e7681;
+                margin: 0; font-size: 0.88rem; color: var(--pq-faint);
             }
 
             /* Arb split */
@@ -1354,635 +1595,690 @@ def _inject_global_css() -> None:
                 .pq-split { grid-template-columns: 1fr; }
             }
             .pq-split-side {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 0.85rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.95rem;
                 text-align: center;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-split-side .venue {
-                font-size: 0.68rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.66rem;
+                font-weight: 800;
+                color: var(--pq-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.10em;
                 margin-bottom: 0.35rem;
             }
             .pq-split-side .leg {
-                font-size: 1rem;
-                font-weight: 800;
-                color: #58a6ff;
+                font-size: 1.05rem;
+                font-weight: 900;
+                color: var(--pq-accent);
+                letter-spacing: -0.01em;
             }
             .pq-arb-banner {
-                background: linear-gradient(90deg, rgba(63,185,80,0.3), rgba(35,134,54,0.15));
-                border: 2px solid #3fb950;
-                border-radius: 12px;
+                background:
+                    radial-gradient(ellipse 80% 70% at 0% 50%, rgba(52,211,153,0.30), transparent 70%),
+                    linear-gradient(90deg, rgba(52,211,153,0.20), rgba(16,185,129,0.05));
+                border: 1px solid rgba(52,211,153,0.55);
+                border-radius: var(--pq-radius);
                 padding: 1rem 1.1rem;
                 text-align: center;
                 margin-top: 0.65rem;
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.10) inset,
+                            0 18px 42px -22px rgba(16,185,129,0.55);
             }
             .pq-arb-banner h3 {
-                margin: 0 0 0.25rem;
-                color: #3fb950;
-                font-size: 1.05rem;
-                font-weight: 800;
+                margin: 0 0 0.25rem; color: var(--pq-success);
+                font-size: 1.05rem; font-weight: 900; letter-spacing: -0.02em;
             }
-            .pq-arb-banner p {
-                margin: 0;
-                color: #c9d1d9;
-                font-size: 0.9rem;
-            }
+            .pq-arb-banner p { margin: 0; color: var(--pq-text-2); font-size: 0.9rem; }
 
             /* Warning banner */
             .pq-trap-banner {
-                background: linear-gradient(135deg, rgba(248,81,73,0.2), rgba(139,69,19,0.1));
-                border: 2px solid #f85149;
-                border-radius: 12px;
+                background:
+                    radial-gradient(ellipse 80% 60% at 100% 0%, rgba(248,113,113,0.22), transparent 70%),
+                    linear-gradient(135deg, rgba(248,113,113,0.14), rgba(244,63,94,0.05));
+                border: 1px solid rgba(248,113,113,0.55);
+                border-radius: var(--pq-radius);
                 padding: 1.1rem 1.2rem;
                 margin-top: 0.75rem;
+                box-shadow: 0 18px 42px -22px rgba(244,63,94,0.55);
             }
             .pq-trap-banner h3 {
-                margin: 0 0 0.4rem;
-                color: #f85149;
-                font-size: 1rem;
-                font-weight: 800;
+                margin: 0 0 0.4rem; color: var(--pq-danger);
+                font-size: 1rem; font-weight: 900; letter-spacing: -0.01em;
             }
-            .pq-trap-banner p {
-                margin: 0;
-                color: #c9d1d9;
-                font-size: 0.88rem;
-                line-height: 1.45;
-            }
+            .pq-trap-banner p { margin: 0; color: var(--pq-text-2); font-size: 0.88rem; line-height: 1.45; }
 
             /* Input card */
             .pq-input-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 0.85rem 1rem 0.25rem;
-                margin-bottom: 0.75rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
+                padding: 0.9rem 1.05rem 0.35rem;
+                margin-bottom: 0.85rem;
+                box-shadow: var(--pq-shadow-soft);
             }
 
             /* Streamlit widgets */
             [data-testid="stMetric"] {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 10px;
-                padding: 0.6rem 0.75rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.7rem 0.9rem;
+                box-shadow: var(--pq-shadow-soft);
             }
-            [data-testid="stDataFrame"] {
-                border: 1px solid #21262d;
-                border-radius: 12px;
+            [data-testid="stMetric"] [data-testid="stMetricLabel"] {
+                color: var(--pq-muted) !important;
+                text-transform: uppercase;
+                font-size: 0.66rem !important;
+                font-weight: 800 !important;
+                letter-spacing: 0.10em;
             }
-            .stSlider label, .stNumberInput label, .stSelectbox label {
-                font-weight: 600 !important;
-                font-size: 0.82rem !important;
+            [data-testid="stMetric"] [data-testid="stMetricValue"] {
+                font-variant-numeric: tabular-nums;
+                font-weight: 900;
+                letter-spacing: -0.02em;
+                color: var(--pq-text) !important;
             }
-            hr {
-                border-color: #21262d;
-                margin: 0.75rem 0;
+            [data-testid="stMetricDelta"] svg { display: none; }
+            [data-testid="stDataFrame"], [data-testid="stTable"] {
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                overflow: hidden;
+                box-shadow: var(--pq-shadow-soft);
+            }
+            .stSlider label, .stNumberInput label, .stSelectbox label, .stTextInput label {
+                font-weight: 700 !important;
+                font-size: 0.78rem !important;
+                color: var(--pq-text-2) !important;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+            }
+            .stNumberInput input, .stTextInput input, .stTextArea textarea {
+                background: var(--pq-surface-2) !important;
+                color: var(--pq-text) !important;
+                border: 1px solid var(--pq-border) !important;
+                border-radius: 10px !important;
+                font-variant-numeric: tabular-nums;
+            }
+            .stNumberInput input:focus, .stTextInput input:focus, .stTextArea textarea:focus {
+                border-color: var(--pq-accent) !important;
+                box-shadow: 0 0 0 3px rgba(129,140,248,0.20) !important;
+            }
+            .stSelectbox [data-baseweb="select"] > div {
+                background: var(--pq-surface-2) !important;
+                border-color: var(--pq-border) !important;
+                border-radius: 10px !important;
+            }
+            .stSlider [data-baseweb="slider"] [role="slider"] {
+                background: linear-gradient(135deg, var(--pq-accent), var(--pq-accent-2)) !important;
+                border: 0 !important;
+                box-shadow: 0 4px 14px -4px rgba(129,140,248,0.5) !important;
+            }
+            .stSlider [data-baseweb="slider"] > div > div > div {
+                background: linear-gradient(90deg, var(--pq-accent), var(--pq-accent-2)) !important;
+            }
+            hr { border-color: var(--pq-border); margin: 0.85rem 0; }
+
+            /* Streamlit alert boxes */
+            .stAlert {
+                border-radius: var(--pq-radius) !important;
+                border: 1px solid var(--pq-border) !important;
+            }
+            .stAlert[data-baseweb="notification"] {
+                background: var(--pq-surface-1) !important;
             }
 
             /* Section labels & picker */
             .pq-section-label {
-                font-size: 0.72rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.66rem;
+                font-weight: 800;
+                color: var(--pq-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
+                letter-spacing: 0.12em;
                 margin: 0.65rem 0 0.35rem;
             }
             .pq-pick-card {
-                background: #161b22;
-                border: 1px solid #21262d;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
                 border-radius: 10px;
-                padding: 0.55rem 0.75rem;
-                margin-bottom: 0.25rem;
+                padding: 0.6rem 0.8rem;
+                margin-bottom: 0.3rem;
+                transition: border-color .15s ease, background .15s ease;
+            }
+            .pq-pick-card:hover {
+                border-color: var(--pq-accent);
+                background: rgba(129,140,248,0.06);
             }
             .pq-pick-selected {
-                border-color: #58a6ff;
-                background: rgba(88,166,255,0.08);
+                border-color: var(--pq-accent) !important;
+                background: rgba(129,140,248,0.10) !important;
+                box-shadow: 0 0 0 3px rgba(129,140,248,0.15);
             }
             .pq-pick-title {
-                display: block;
-                font-size: 0.84rem;
-                font-weight: 600;
-                color: #f0f2f5;
-                line-height: 1.35;
+                display: block; font-size: 0.84rem; font-weight: 700;
+                color: var(--pq-text); line-height: 1.35;
             }
             .pq-pick-meta {
-                display: block;
-                font-size: 0.72rem;
-                color: #58a6ff;
-                font-weight: 700;
-                margin-top: 0.15rem;
+                display: block; font-size: 0.72rem;
+                color: var(--pq-accent); font-weight: 700; margin-top: 0.15rem;
             }
             .pq-page-indicator {
-                text-align: center;
-                font-size: 0.75rem;
-                color: #8b949e;
-                margin: 0.35rem 0 0;
+                text-align: center; font-size: 0.78rem;
+                color: var(--pq-text-2); margin: 0.35rem 0 0;
+                font-weight: 700;
             }
             .pq-selected-banner {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 10px;
-                padding: 0.65rem 0.8rem;
-                font-size: 0.78rem;
-                color: #c9d1d9;
-                line-height: 1.4;
+                background: linear-gradient(90deg, rgba(129,140,248,0.10), rgba(34,211,238,0.05));
+                border: 1px solid rgba(129,140,248,0.30);
+                border-radius: var(--pq-radius);
+                padding: 0.7rem 0.85rem;
+                font-size: 0.8rem;
+                color: var(--pq-text-2);
+                line-height: 1.45;
                 margin: 0.5rem 0 0.75rem;
             }
             .pq-odds-bar {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 0.55rem 0.75rem 0.35rem;
+                background: var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.6rem 0.8rem 0.4rem;
                 margin-bottom: 0.65rem;
             }
 
             /* Tactile buttons */
-            .stButton > button {
+            .stButton > button, .stDownloadButton > button {
                 border-radius: 10px !important;
-                font-weight: 600 !important;
-                min-height: 2.35rem;
+                font-weight: 700 !important;
+                font-size: 0.82rem !important;
+                min-height: 2.4rem;
+                background: var(--pq-surface-2) !important;
+                border: 1px solid var(--pq-border) !important;
+                color: var(--pq-text) !important;
+                transition: transform .12s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease !important;
             }
-            .stButton > button[kind="secondary"] {
-                background: #21262d !important;
-                border: 1px solid #30363d !important;
-                color: #c9d1d9 !important;
+            .stButton > button:hover {
+                border-color: var(--pq-accent) !important;
+                background: rgba(129,140,248,0.10) !important;
+                transform: translateY(-1px);
             }
             .stButton > button[kind="primary"] {
-                background: #1f6feb !important;
-                border: 1px solid #388bfd !important;
+                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+                border: 1px solid rgba(255,255,255,0.10) !important;
+                color: #fff !important;
+                box-shadow: 0 10px 26px -10px rgba(99,102,241,0.65),
+                            inset 0 1px 0 rgba(255,255,255,0.16) !important;
+            }
+            .stButton > button[kind="primary"]:hover {
+                background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+                box-shadow: 0 14px 32px -10px rgba(99,102,241,0.75) !important;
+            }
+            .stButton > button:focus-visible {
+                outline: none !important;
+                box-shadow: 0 0 0 3px rgba(129,140,248,0.35) !important;
             }
 
             /* Segmented control polish */
             [data-testid="stSegmentedControl"] {
-                background: #0d1117;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
                 border-radius: 10px;
                 padding: 3px;
             }
 
             /* Pikkit-style explore feed */
             .pq-search-hero {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 0.65rem 0.85rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
+                padding: 0.6rem 0.85rem;
                 margin-bottom: 0.55rem;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-feed-row {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 0.75rem 0.85rem;
-                margin-bottom: 0.45rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.8rem 0.9rem;
+                margin-bottom: 0.5rem;
+                transition: border-color .15s ease, transform .15s ease;
+            }
+            .pq-feed-row:hover {
+                border-color: var(--pq-border-strong);
+                transform: translateY(-1px);
             }
             .pq-feed-meta {
                 display: block;
-                font-size: 0.65rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.62rem;
+                font-weight: 800;
+                color: var(--pq-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.10em;
                 margin-bottom: 0.25rem;
             }
             .pq-feed-title {
-                display: block;
-                font-size: 0.88rem;
-                font-weight: 700;
-                color: #f0f2f5;
-                line-height: 1.35;
+                display: block; font-size: 0.88rem; font-weight: 700;
+                color: var(--pq-text); line-height: 1.35;
             }
             .pq-feed-event {
-                display: block;
-                font-size: 0.72rem;
-                color: #6e7681;
-                margin-top: 0.2rem;
+                display: block; font-size: 0.72rem; color: var(--pq-faint); margin-top: 0.2rem;
             }
             .pq-odd-pill {
-                display: block;
-                text-align: center;
-                padding: 0.55rem 0.35rem;
+                display: block; text-align: center;
+                padding: 0.55rem 0.45rem;
                 border-radius: 10px;
-                font-weight: 800;
-                font-size: 0.95rem;
+                font-weight: 900;
+                font-size: 0.92rem;
+                font-variant-numeric: tabular-nums;
+                letter-spacing: -0.01em;
             }
             .pq-odd-yes {
-                background: #1c2d41;
-                color: #58a6ff;
-                border: 1px solid #30363d;
+                background: rgba(52,211,153,0.10);
+                color: var(--pq-success);
+                border: 1px solid rgba(52,211,153,0.35);
             }
             .pq-odd-no {
-                background: #1a2332;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
+                background: rgba(248,113,113,0.08);
+                color: var(--pq-danger);
+                border: 1px solid rgba(248,113,113,0.30);
             }
-            .pq-nav-scroll .stPills {
-                overflow-x: auto;
-            }
+            .pq-nav-scroll .stPills { overflow-x: auto; }
 
             /* Phase 1 — tactile value cards */
             .pq-value-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 1rem 1.1rem;
-                margin-bottom: 0.65rem;
+                position: relative;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
+                padding: 1.05rem 1.15rem;
+                margin-bottom: 0.7rem;
+                box-shadow: var(--pq-shadow-soft);
+                transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+            }
+            .pq-value-card:hover {
+                border-color: var(--pq-border-strong);
+                transform: translateY(-1px);
             }
             .pq-value-card-hot {
-                border-color: #238636;
-                box-shadow: 0 0 18px rgba(63,185,80,0.15);
+                border-color: rgba(52,211,153,0.45);
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.10) inset,
+                            0 18px 38px -22px rgba(16,185,129,0.45);
             }
             .pq-event-name {
-                font-size: 0.95rem;
+                font-size: 0.98rem;
                 font-weight: 800;
-                color: #f0f2f5;
-                margin: 0 0 0.65rem;
+                color: var(--pq-text);
+                margin: 0 0 0.7rem;
                 line-height: 1.35;
+                letter-spacing: -0.01em;
             }
             .pq-cta-pill {
                 display: inline-block;
-                background: linear-gradient(90deg, #1f6feb, #388bfd);
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
                 color: #fff;
-                font-weight: 800;
+                font-weight: 900;
                 font-size: 0.82rem;
-                padding: 0.45rem 0.85rem;
+                padding: 0.5rem 0.95rem;
                 border-radius: 999px;
-                margin-bottom: 0.55rem;
+                margin-bottom: 0.6rem;
                 letter-spacing: 0.02em;
+                box-shadow: 0 10px 26px -10px rgba(99,102,241,0.65),
+                            inset 0 1px 0 rgba(255,255,255,0.18);
             }
             .pq-ev-badge {
-                display: inline-block;
-                background: rgba(63,185,80,0.25);
-                color: #3fb950;
-                border: 1px solid #3fb950;
-                font-weight: 800;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                background: rgba(52,211,153,0.14);
+                color: var(--pq-success);
+                border: 1px solid rgba(52,211,153,0.45);
+                font-weight: 900;
                 font-size: 0.8rem;
-                padding: 0.3rem 0.65rem;
-                border-radius: 8px;
+                padding: 0.32rem 0.7rem;
+                border-radius: 999px;
+                letter-spacing: 0.02em;
             }
             .pq-metric-row {
-                display: flex;
-                gap: 1.25rem;
-                flex-wrap: wrap;
-                font-size: 0.78rem;
-                color: #8b949e;
+                display: flex; gap: 1.25rem; flex-wrap: wrap;
+                font-size: 0.78rem; color: var(--pq-muted);
+                font-variant-numeric: tabular-nums;
             }
-            .pq-metric-row strong { color: #f0f2f5; }
+            .pq-metric-row strong { color: var(--pq-text); font-weight: 800; }
 
             /* Full-width audit banner */
             .pq-banner-play {
-                background: linear-gradient(90deg, rgba(63,185,80,0.35), rgba(35,134,54,0.15));
-                border: 2px solid #3fb950;
-                border-radius: 12px;
+                background:
+                    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(52,211,153,0.30), transparent 70%),
+                    linear-gradient(90deg, rgba(52,211,153,0.22), rgba(16,185,129,0.05));
+                border: 1px solid rgba(52,211,153,0.55);
+                border-radius: var(--pq-radius);
                 padding: 1.4rem;
                 text-align: center;
-                font-size: 1.45rem;
+                font-size: 1.4rem;
                 font-weight: 900;
-                color: #3fb950;
+                color: var(--pq-success);
                 margin-top: 1rem;
-                letter-spacing: 0.04em;
+                letter-spacing: 0.02em;
+                box-shadow: 0 22px 50px -22px rgba(16,185,129,0.55);
             }
             .pq-banner-pass {
-                background: rgba(88,28,28,0.35);
-                border: 2px solid #6e3630;
-                border-radius: 12px;
-                padding: 1.4rem;
+                background: var(--pq-surface-1);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 1.3rem;
                 text-align: center;
-                font-size: 1.35rem;
+                font-size: 1.3rem;
                 font-weight: 900;
-                color: #8b949e;
+                color: var(--pq-muted);
                 margin-top: 1rem;
             }
 
             /* Hype vs Reality */
             .pq-hype-col {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
                 padding: 1rem;
                 text-align: center;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-hype-val {
-                font-size: 2rem;
-                font-weight: 900;
-                color: #f0f2f5;
+                font-size: 2.2rem; font-weight: 900;
+                color: var(--pq-text); letter-spacing: -0.03em;
+                font-variant-numeric: tabular-nums;
+                background: linear-gradient(135deg, var(--pq-text) 0%, var(--pq-accent) 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
             }
             .pq-bubble-badge {
-                background: linear-gradient(90deg, rgba(255,140,0,0.35), rgba(255,69,0,0.2));
-                border: 2px solid #ff8c00;
-                color: #ffb347;
+                background:
+                    radial-gradient(ellipse 80% 60% at 0% 50%, rgba(251,191,36,0.30), transparent 70%),
+                    linear-gradient(90deg, rgba(251,191,36,0.20), rgba(245,158,11,0.08));
+                border: 1px solid rgba(251,191,36,0.55);
+                color: var(--pq-warning);
                 font-weight: 900;
                 font-size: 0.95rem;
                 padding: 1rem 1.1rem;
-                border-radius: 12px;
+                border-radius: var(--pq-radius);
                 text-align: center;
                 margin-top: 0.85rem;
-                box-shadow: 0 0 20px rgba(255,140,0,0.2);
+                box-shadow: 0 18px 42px -22px rgba(245,158,11,0.55);
             }
 
             /* Arb recipe */
             .pq-recipe {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
                 padding: 1rem 1.15rem;
                 margin: 0.5rem 0;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-recipe-step {
                 font-size: 0.92rem;
-                color: #c9d1d9;
+                color: var(--pq-text-2);
                 margin: 0.45rem 0;
                 line-height: 1.5;
             }
-            .pq-recipe-step strong { color: #58a6ff; }
+            .pq-recipe-step strong { color: var(--pq-accent); font-weight: 800; }
             .pq-lock-banner {
-                background: linear-gradient(90deg, rgba(63,185,80,0.3), rgba(35,134,54,0.12));
-                border: 2px solid #3fb950;
-                border-radius: 12px;
+                background:
+                    radial-gradient(ellipse 80% 60% at 0% 50%, rgba(52,211,153,0.30), transparent 70%),
+                    linear-gradient(90deg, rgba(52,211,153,0.22), rgba(16,185,129,0.06));
+                border: 1px solid rgba(52,211,153,0.55);
+                border-radius: var(--pq-radius);
                 padding: 1rem;
                 text-align: center;
                 font-size: 1.1rem;
-                font-weight: 800;
-                color: #3fb950;
+                font-weight: 900;
+                color: var(--pq-success);
                 margin-top: 0.75rem;
+                box-shadow: 0 18px 42px -22px rgba(16,185,129,0.55);
+                letter-spacing: -0.01em;
             }
 
             /* Cross-book arb comparison */
             .pq-arb-compare {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
                 padding: 1rem 1.1rem;
                 margin: 0.75rem 0 1rem;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-arb-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 0.65rem;
+                gap: 0.7rem;
             }
             @media (max-width: 640px) {
                 .pq-arb-grid { grid-template-columns: 1fr; }
             }
             .pq-book-card {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.85rem;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.9rem;
             }
             .pq-book-header {
-                font-size: 0.68rem;
+                font-size: 0.66rem;
                 font-weight: 800;
-                color: #8b949e;
+                color: var(--pq-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
+                letter-spacing: 0.10em;
                 margin-bottom: 0.35rem;
             }
             .pq-book-title {
-                font-size: 0.82rem;
-                font-weight: 700;
-                color: #f0f2f5;
+                font-size: 0.84rem;
+                font-weight: 800;
+                color: var(--pq-text);
                 line-height: 1.35;
                 margin-bottom: 0.65rem;
                 min-height: 2.2rem;
+                letter-spacing: -0.01em;
             }
             .pq-odd-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 0.45rem 0.55rem;
-                border-radius: 8px;
-                margin-bottom: 0.35rem;
-                font-size: 0.8rem;
-                font-weight: 700;
+                display: flex; justify-content: space-between; align-items: center;
+                padding: 0.5rem 0.6rem;
+                border-radius: 9px;
+                margin-bottom: 0.4rem;
+                font-size: 0.82rem; font-weight: 800;
+                font-variant-numeric: tabular-nums;
             }
             .pq-odd-row.yes {
-                background: rgba(88,166,255,0.12);
-                border: 1px solid rgba(88,166,255,0.35);
-                color: #58a6ff;
+                background: rgba(52,211,153,0.10);
+                border: 1px solid rgba(52,211,153,0.30);
+                color: var(--pq-success);
             }
             .pq-odd-row.no {
-                background: #21262d;
-                border: 1px solid #30363d;
-                color: #c9d1d9;
+                background: rgba(248,113,113,0.07);
+                border: 1px solid rgba(248,113,113,0.25);
+                color: var(--pq-danger);
             }
             .pq-odd-row .pq-odd-val {
-                font-weight: 800;
-                color: #f0f2f5;
-                font-size: 0.78rem;
+                font-weight: 900; color: var(--pq-text); font-size: 0.80rem;
             }
             .pq-strategy-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
                 padding: 1rem 1.1rem;
                 margin: 0.65rem 0;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-strategy-card.pq-strategy-live {
-                border-color: #3fb950;
-                box-shadow: 0 0 20px rgba(63,185,80,0.15);
+                border-color: rgba(52,211,153,0.55);
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.10) inset,
+                            0 18px 42px -22px rgba(16,185,129,0.50);
             }
             .pq-strategy-head {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 0.65rem;
-                flex-wrap: wrap;
-                gap: 0.35rem;
+                display: flex; justify-content: space-between; align-items: center;
+                margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.35rem;
             }
             .pq-strategy-title {
-                font-size: 0.95rem;
-                font-weight: 800;
-                color: #f0f2f5;
-                margin: 0;
+                font-size: 0.95rem; font-weight: 900; color: var(--pq-text);
+                margin: 0; letter-spacing: -0.01em;
             }
             .pq-strategy-badge {
-                font-size: 0.68rem;
-                font-weight: 800;
-                padding: 0.25rem 0.55rem;
+                font-size: 0.66rem; font-weight: 900;
+                padding: 0.28rem 0.6rem;
                 border-radius: 999px;
-                text-transform: uppercase;
-                letter-spacing: 0.04em;
+                text-transform: uppercase; letter-spacing: 0.06em;
             }
             .pq-strategy-badge.live {
-                background: rgba(63,185,80,0.22);
-                color: #3fb950;
-                border: 1px solid #3fb950;
+                background: rgba(52,211,153,0.18);
+                color: var(--pq-success);
+                border: 1px solid rgba(52,211,153,0.50);
             }
             .pq-strategy-badge.dead {
-                background: #21262d;
-                color: #8b949e;
-                border: 1px solid #30363d;
+                background: rgba(148,163,184,0.10);
+                color: var(--pq-muted);
+                border: 1px solid var(--pq-border-strong);
             }
             .pq-strategy-metrics {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 0.45rem;
-                margin-top: 0.65rem;
+                display: grid; grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem; margin-top: 0.7rem;
             }
             @media (max-width: 480px) {
                 .pq-strategy-metrics { grid-template-columns: 1fr; }
             }
             .pq-metric-box {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 10px;
-                padding: 0.55rem 0.65rem;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.6rem 0.7rem;
                 text-align: center;
             }
             .pq-metric-box .lbl {
-                display: block;
-                font-size: 0.62rem;
-                font-weight: 700;
-                color: #8b949e;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
+                display: block; font-size: 0.60rem; font-weight: 800;
+                color: var(--pq-muted);
+                text-transform: uppercase; letter-spacing: 0.08em;
             }
             .pq-metric-box .val {
-                display: block;
-                font-size: 0.95rem;
-                font-weight: 800;
-                color: #f0f2f5;
-                margin-top: 0.15rem;
+                display: block; font-size: 1rem; font-weight: 900;
+                color: var(--pq-text); margin-top: 0.2rem;
+                font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
             }
-            .pq-metric-box .val.green { color: #3fb950; }
-            .pq-metric-box .val.red { color: #f85149; }
+            .pq-metric-box .val.green { color: var(--pq-success); }
+            .pq-metric-box .val.red   { color: var(--pq-danger); }
             .pq-arb-detail {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.8rem;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.85rem;
                 margin-top: 0.7rem;
             }
             .pq-arb-detail-title {
                 margin: 0 0 0.5rem;
-                color: #f0f2f5;
-                font-size: 0.78rem;
-                font-weight: 800;
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
+                color: var(--pq-text);
+                font-size: 0.74rem; font-weight: 900;
+                text-transform: uppercase; letter-spacing: 0.10em;
             }
             .pq-arb-ticket-row {
-                display: grid;
-                grid-template-columns: 1.25fr 0.75fr 0.8fr 0.9fr;
-                gap: 0.45rem;
-                align-items: center;
-                padding: 0.5rem 0;
-                border-top: 1px solid #21262d;
-                font-size: 0.78rem;
-                color: #c9d1d9;
+                display: grid; grid-template-columns: 1.25fr 0.75fr 0.8fr 0.9fr;
+                gap: 0.5rem; align-items: center;
+                padding: 0.55rem 0;
+                border-top: 1px solid var(--pq-border);
+                font-size: 0.8rem; color: var(--pq-text-2);
+                font-variant-numeric: tabular-nums;
             }
             .pq-arb-ticket-row.header {
-                border-top: 0;
-                padding-top: 0;
-                color: #8b949e;
-                font-size: 0.66rem;
-                font-weight: 800;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
+                border-top: 0; padding-top: 0;
+                color: var(--pq-muted);
+                font-size: 0.62rem; font-weight: 900;
+                text-transform: uppercase; letter-spacing: 0.08em;
             }
-            .pq-arb-ticket-row strong {
-                color: #f0f2f5;
-                font-weight: 800;
-            }
+            .pq-arb-ticket-row strong { color: var(--pq-text); font-weight: 800; }
             .pq-arb-ticket-row .cash {
-                color: #58a6ff;
-                font-weight: 800;
-                text-align: right;
+                color: var(--pq-accent); font-weight: 900; text-align: right;
             }
             .pq-arb-explain {
                 margin: 0.65rem 0 0;
-                color: #c9d1d9;
-                font-size: 0.82rem;
-                line-height: 1.48;
+                color: var(--pq-text-2);
+                font-size: 0.84rem; line-height: 1.5;
             }
-            .pq-arb-explain strong { color: #f0f2f5; }
+            .pq-arb-explain strong { color: var(--pq-text); }
             .pq-arb-warning {
-                background: rgba(248,81,73,0.12);
-                border: 1px solid rgba(248,81,73,0.45);
-                border-radius: 10px;
-                color: #ffb3ad;
-                font-size: 0.8rem;
-                line-height: 1.45;
-                margin-top: 0.7rem;
-                padding: 0.7rem 0.75rem;
+                background: rgba(248,113,113,0.10);
+                border: 1px solid rgba(248,113,113,0.45);
+                border-radius: var(--pq-radius);
+                color: #fecaca;
+                font-size: 0.82rem; line-height: 1.5;
+                margin-top: 0.7rem; padding: 0.75rem 0.85rem;
             }
             .pq-arb-spotlight {
-                background: linear-gradient(180deg, rgba(88,166,255,0.18), rgba(13,17,23,0.96));
-                border: 2px solid #58a6ff;
-                border-radius: 16px;
-                box-shadow: 0 0 26px rgba(88,166,255,0.18);
+                position: relative;
+                background:
+                    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(129,140,248,0.28), transparent 70%),
+                    linear-gradient(180deg, rgba(129,140,248,0.10), var(--pq-surface-1));
+                border: 1px solid rgba(129,140,248,0.55);
+                border-radius: var(--pq-radius-xl);
+                box-shadow: 0 0 0 1px rgba(129,140,248,0.10) inset,
+                            0 22px 50px -24px rgba(99,102,241,0.55);
                 margin: 0.75rem 0 1rem;
-                padding: 1rem;
+                padding: 1.05rem;
             }
             .pq-arb-spotlight.live {
-                background: linear-gradient(180deg, rgba(63,185,80,0.22), rgba(13,17,23,0.96));
-                border-color: #3fb950;
-                box-shadow: 0 0 28px rgba(63,185,80,0.22);
+                background:
+                    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(52,211,153,0.30), transparent 70%),
+                    linear-gradient(180deg, rgba(52,211,153,0.10), var(--pq-surface-1));
+                border-color: rgba(52,211,153,0.60);
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.10) inset,
+                            0 22px 56px -24px rgba(16,185,129,0.60);
             }
             .pq-arb-spotlight.dead {
-                background: linear-gradient(180deg, rgba(248,81,73,0.16), rgba(13,17,23,0.96));
-                border-color: #f85149;
-                box-shadow: 0 0 24px rgba(248,81,73,0.15);
+                background:
+                    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(248,113,113,0.24), transparent 70%),
+                    linear-gradient(180deg, rgba(248,113,113,0.08), var(--pq-surface-1));
+                border-color: rgba(248,113,113,0.55);
             }
             .pq-arb-spotlight-kicker {
-                color: #8b949e;
-                font-size: 0.68rem;
-                font-weight: 900;
-                letter-spacing: 0.08em;
+                color: var(--pq-muted);
+                font-size: 0.66rem; font-weight: 900;
+                letter-spacing: 0.12em;
                 margin: 0 0 0.25rem;
                 text-transform: uppercase;
             }
             .pq-arb-spotlight-title {
-                color: #f0f2f5;
-                font-size: 1.1rem;
-                font-weight: 900;
-                letter-spacing: -0.02em;
-                line-height: 1.2;
+                color: var(--pq-text);
+                font-size: 1.15rem; font-weight: 900;
+                letter-spacing: -0.02em; line-height: 1.2;
                 margin: 0 0 0.7rem;
             }
-            .pq-arb-action-list {
-                display: grid;
-                gap: 0.5rem;
-                margin: 0.7rem 0;
-            }
+            .pq-arb-action-list { display: grid; gap: 0.55rem; margin: 0.75rem 0; }
             .pq-arb-action {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.75rem;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.8rem;
+                transition: border-color .15s ease, transform .15s ease;
             }
+            .pq-arb-action:hover { border-color: var(--pq-border-strong); transform: translateY(-1px); }
             .pq-arb-action .step {
-                color: #8b949e;
-                display: block;
-                font-size: 0.66rem;
-                font-weight: 900;
-                letter-spacing: 0.06em;
-                text-transform: uppercase;
+                color: var(--pq-muted); display: block;
+                font-size: 0.64rem; font-weight: 900;
+                letter-spacing: 0.10em; text-transform: uppercase;
             }
             .pq-arb-action .take {
-                color: #f0f2f5;
-                display: block;
-                font-size: 0.94rem;
-                font-weight: 900;
-                margin-top: 0.15rem;
+                color: var(--pq-text); display: block;
+                font-size: 0.96rem; font-weight: 900;
+                margin-top: 0.18rem; letter-spacing: -0.01em;
             }
             .pq-arb-action .meta {
-                color: #58a6ff;
-                display: block;
-                font-size: 0.78rem;
-                font-weight: 700;
+                color: var(--pq-accent); display: block;
+                font-size: 0.78rem; font-weight: 800;
                 margin-top: 0.2rem;
+                font-variant-numeric: tabular-nums;
             }
             .pq-arb-spotlight-note {
-                color: #c9d1d9;
-                font-size: 0.82rem;
-                line-height: 1.5;
+                color: var(--pq-text-2);
+                font-size: 0.84rem; line-height: 1.5;
                 margin: 0.65rem 0 0;
             }
-            .pq-arb-spotlight-note strong { color: #f0f2f5; }
+            .pq-arb-spotlight-note strong { color: var(--pq-text); }
             @media (max-width: 480px) {
                 .pq-arb-ticket-row {
                     grid-template-columns: 1fr 0.62fr;
@@ -1994,204 +2290,188 @@ def _inject_global_css() -> None:
 
             /* Kalshi auto-suggest */
             .pq-suggest-card {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.7rem 0.85rem;
-                margin-bottom: 0.35rem;
+                background: var(--pq-surface-2);
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius);
+                padding: 0.75rem 0.9rem;
+                margin-bottom: 0.4rem;
             }
             .pq-suggest-score {
                 display: inline-block;
-                font-size: 0.65rem;
-                font-weight: 800;
-                color: #58a6ff;
-                background: rgba(88,166,255,0.12);
-                border: 1px solid rgba(88,166,255,0.35);
+                font-size: 0.62rem;
+                font-weight: 900;
+                color: var(--pq-accent);
+                background: rgba(129,140,248,0.12);
+                border: 1px solid rgba(129,140,248,0.40);
                 border-radius: 999px;
-                padding: 0.15rem 0.45rem;
+                padding: 0.17rem 0.5rem;
                 margin-bottom: 0.35rem;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
             }
             .pq-suggest-title {
-                display: block;
-                font-size: 0.84rem;
-                font-weight: 700;
-                color: #f0f2f5;
-                line-height: 1.35;
+                display: block; font-size: 0.84rem; font-weight: 700;
+                color: var(--pq-text); line-height: 1.35;
             }
             .pq-suggest-meta {
-                display: block;
-                font-size: 0.72rem;
-                color: #58a6ff;
-                font-weight: 600;
-                margin-top: 0.2rem;
+                display: block; font-size: 0.72rem;
+                color: var(--pq-accent); font-weight: 700; margin-top: 0.2rem;
             }
             .pq-build-tag {
-                color: #58a6ff;
-                font-weight: 700;
+                color: var(--pq-accent); font-weight: 800;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.7rem;
             }
 
             /* Pikkit-style performance calendar */
             .pq-perf-calendar {
-                background: #0E121A;
-                border: 1px solid #1F2937;
-                border-radius: 10px;
-                padding: 0.85rem 0.95rem 1rem;
-                margin: 0.65rem 0 1rem;
+                background: linear-gradient(180deg, var(--pq-surface-1), var(--pq-surface-2));
+                border: 1px solid var(--pq-border);
+                border-radius: var(--pq-radius-lg);
+                padding: 0.95rem 1.05rem 1.05rem;
+                margin: 0.7rem 0 1.1rem;
+                box-shadow: var(--pq-shadow-soft);
             }
             .pq-perf-cal-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: baseline;
-                margin-bottom: 0.65rem;
-                flex-wrap: wrap;
-                gap: 0.35rem;
+                display: flex; justify-content: space-between; align-items: baseline;
+                margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.35rem;
             }
             .pq-perf-cal-title {
-                font-size: 0.95rem;
-                font-weight: 800;
-                color: #f0f2f5;
-                letter-spacing: -0.02em;
+                font-size: 1rem; font-weight: 900;
+                color: var(--pq-text); letter-spacing: -0.02em;
             }
             .pq-perf-cal-sub {
-                font-size: 0.72rem;
-                font-weight: 600;
-                color: #8b949e;
+                font-size: 0.72rem; font-weight: 700; color: var(--pq-muted);
+                text-transform: uppercase; letter-spacing: 0.06em;
             }
             .pq-perf-cal-month-pnl {
-                font-size: 0.82rem;
-                font-weight: 800;
+                font-size: 0.85rem; font-weight: 900;
+                font-variant-numeric: tabular-nums;
+                padding: 0.3rem 0.6rem;
+                border-radius: 999px;
+                border: 1px solid var(--pq-border);
             }
-            .pq-perf-cal-month-pnl.pos { color: #3fb950; }
-            .pq-perf-cal-month-pnl.neg { color: #f85149; }
-            .pq-perf-cal-month-pnl.flat { color: #8b949e; }
+            .pq-perf-cal-month-pnl.pos {
+                color: var(--pq-success);
+                background: rgba(52,211,153,0.10);
+                border-color: rgba(52,211,153,0.35);
+            }
+            .pq-perf-cal-month-pnl.neg {
+                color: var(--pq-danger);
+                background: rgba(248,113,113,0.10);
+                border-color: rgba(248,113,113,0.35);
+            }
+            .pq-perf-cal-month-pnl.flat { color: var(--pq-muted); }
             .pq-perf-cal-grid {
                 display: grid;
                 grid-template-columns: repeat(7, minmax(0, 1fr));
                 gap: 6px;
             }
             .pq-perf-cal-head {
-                text-align: center;
-                font-size: 0.62rem;
-                font-weight: 800;
-                color: #6e7681;
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
-                padding: 0.2rem 0 0.35rem;
+                text-align: center; font-size: 0.62rem; font-weight: 900;
+                color: var(--pq-faint); text-transform: uppercase;
+                letter-spacing: 0.10em; padding: 0.2rem 0 0.4rem;
             }
             .pq-perf-cal-cell {
-                min-height: 58px;
-                border-radius: 8px;
-                border: 1px solid #1F2937;
-                background: #0A0C10;
-                padding: 0.35rem 0.3rem 0.3rem;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                align-items: stretch;
+                min-height: 60px;
+                border-radius: 9px;
+                border: 1px solid var(--pq-border);
+                background: var(--pq-surface-2);
+                padding: 0.4rem 0.35rem 0.35rem;
+                display: flex; flex-direction: column;
+                justify-content: space-between; align-items: stretch;
+                transition: transform .12s ease;
             }
+            .pq-perf-cal-cell:hover { transform: translateY(-1px); }
             .pq-perf-cal-cell.pq-perf-empty {
-                background: transparent;
-                border-color: transparent;
-                min-height: 0;
-                padding: 0;
+                background: transparent; border-color: transparent;
+                min-height: 0; padding: 0;
             }
             .pq-perf-cal-cell.pq-perf-today {
-                box-shadow: 0 0 0 2px #58a6ff;
+                box-shadow: 0 0 0 2px var(--pq-accent);
             }
             .pq-perf-cal-cell.pq-perf-win {
-                background: rgba(63,185,80,0.18);
-                border-color: rgba(63,185,80,0.45);
+                background: rgba(52,211,153,0.14);
+                border-color: rgba(52,211,153,0.45);
             }
             .pq-perf-cal-cell.pq-perf-loss {
-                background: rgba(248,81,73,0.14);
-                border-color: rgba(248,81,73,0.4);
+                background: rgba(248,113,113,0.12);
+                border-color: rgba(248,113,113,0.40);
             }
             .pq-perf-cal-cell.pq-perf-flat {
-                background: #161b22;
-                border-color: #30363d;
+                background: var(--pq-surface-2);
+                border-color: var(--pq-border-strong);
             }
             .pq-perf-cal-day {
-                font-size: 0.62rem;
-                font-weight: 700;
-                color: #8b949e;
-                line-height: 1;
+                font-size: 0.62rem; font-weight: 800;
+                color: var(--pq-muted); line-height: 1;
             }
             .pq-perf-cal-pnl {
-                font-size: 0.72rem;
-                font-weight: 800;
-                text-align: center;
-                line-height: 1.1;
+                font-size: 0.74rem; font-weight: 900;
+                text-align: center; line-height: 1.1;
                 margin-top: 0.15rem;
+                font-variant-numeric: tabular-nums;
             }
-            .pq-perf-cal-pnl.pos { color: #3fb950; }
-            .pq-perf-cal-pnl.neg { color: #f85149; }
-            .pq-perf-cal-pnl.flat { color: #c9d1d9; }
+            .pq-perf-cal-pnl.pos { color: var(--pq-success); }
+            .pq-perf-cal-pnl.neg { color: var(--pq-danger); }
+            .pq-perf-cal-pnl.flat { color: var(--pq-text-2); }
             .pq-perf-cal-count {
-                font-size: 0.58rem;
-                font-weight: 600;
-                color: #6e7681;
-                text-align: center;
-                margin-top: 0.1rem;
+                font-size: 0.58rem; font-weight: 700;
+                color: var(--pq-faint);
+                text-align: center; margin-top: 0.1rem;
+                text-transform: uppercase; letter-spacing: 0.04em;
             }
 
             /* Ledger calendar flexbox (legacy) */
             .pq-calendar-wrap { margin: 0.75rem 0 1rem; }
-            .pq-cal-grid {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 4px;
-            }
+            .pq-cal-grid { display: flex; flex-wrap: wrap; gap: 4px; }
             .pq-cal-head {
-                flex: 1 0 calc(14.28% - 4px);
-                min-width: 0;
-                text-align: center;
-                font-size: 0.65rem;
-                font-weight: 700;
-                color: #8b949e;
-                padding: 0.25rem 0;
+                flex: 1 0 calc(14.28% - 4px); min-width: 0;
+                text-align: center; font-size: 0.65rem; font-weight: 800;
+                color: var(--pq-muted); padding: 0.25rem 0;
+                text-transform: uppercase; letter-spacing: 0.08em;
             }
             .pq-cal-cell {
-                flex: 1 0 calc(14.28% - 4px);
-                min-width: 0;
-                aspect-ratio: 1;
-                border-radius: 8px;
-                border: 1px solid #21262d;
+                flex: 1 0 calc(14.28% - 4px); min-width: 0;
+                aspect-ratio: 1; border-radius: 9px;
+                border: 1px solid var(--pq-border);
                 position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                display: flex; align-items: center; justify-content: center;
             }
             .pq-cal-day {
-                position: absolute;
-                top: 4px;
-                left: 6px;
-                font-size: 0.62rem;
-                color: #8b949e;
-                font-weight: 600;
+                position: absolute; top: 4px; left: 6px;
+                font-size: 0.62rem; color: var(--pq-muted); font-weight: 700;
             }
-            .pq-cal-neutral { background: #161b22; }
-            .pq-cal-win { background: rgba(63,185,80,0.22); border-color: rgba(63,185,80,0.4); }
-            .pq-cal-loss { background: rgba(248,81,73,0.18); border-color: rgba(248,81,73,0.35); }
-            .pq-cal-pnl { font-size: 0.72rem; font-weight: 800; }
-            .pq-cal-pnl.pos { color: #3fb950; }
-            .pq-cal-pnl.neg { color: #f85149; }
-            .pq-cal-dash { color: #484f58; font-size: 0.85rem; }
+            .pq-cal-neutral { background: var(--pq-surface-2); }
+            .pq-cal-win { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.45); }
+            .pq-cal-loss { background: rgba(248,113,113,0.14); border-color: rgba(248,113,113,0.40); }
+            .pq-cal-pnl { font-size: 0.72rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+            .pq-cal-pnl.pos { color: var(--pq-success); }
+            .pq-cal-pnl.neg { color: var(--pq-danger); }
+            .pq-cal-dash { color: var(--pq-faint); font-size: 0.85rem; }
 
 
             /* Elite value plays (SOP) */
             .pq-value-card-elite {
-                border: 2px solid #3fb950;
-                box-shadow: 0 0 22px rgba(63,185,80,0.28);
+                border: 1px solid rgba(52,211,153,0.65);
+                box-shadow: 0 0 0 1px rgba(52,211,153,0.10) inset,
+                            0 22px 50px -22px rgba(16,185,129,0.55);
             }
             .pq-rank-badge {
-                display: inline-block; background: rgba(63,185,80,0.2);
-                color: #3fb950; border: 1px solid #3fb950;
-                font-weight: 800; font-size: 0.72rem;
-                padding: 0.28rem 0.6rem; border-radius: 999px;
-                margin-bottom: 0.5rem; letter-spacing: 0.03em;
+                display: inline-block;
+                background: rgba(52,211,153,0.14);
+                color: var(--pq-success);
+                border: 1px solid rgba(52,211,153,0.45);
+                font-weight: 900; font-size: 0.72rem;
+                padding: 0.30rem 0.65rem; border-radius: 999px;
+                margin-bottom: 0.5rem; letter-spacing: 0.06em;
+                text-transform: uppercase;
             }
             .pq-rank-badge-elite {
-                background: rgba(63,185,80,0.35); font-size: 0.78rem;
+                background: linear-gradient(135deg, rgba(52,211,153,0.30), rgba(34,211,238,0.20));
+                border-color: rgba(52,211,153,0.70);
+                font-size: 0.76rem;
+                color: #d1fae5;
             }
 
             /* Compact explore feed — single row on mobile */
@@ -2213,13 +2493,49 @@ def _inject_global_css() -> None:
                 flex-wrap: nowrap !important;
                 overflow-x: auto !important;
                 -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
             }
+            .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none; }
             .stTabs [data-baseweb="tab"] {
                 white-space: nowrap !important;
                 flex-shrink: 0 !important;
             }
 
-            .block-container { max-width: 1100px; padding-bottom: 2rem; }
+            /* Dataframe / table polish */
+            [data-testid="stDataFrame"] [role="columnheader"] {
+                background: var(--pq-surface-2) !important;
+                color: var(--pq-muted) !important;
+                font-weight: 800 !important;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                font-size: 0.7rem !important;
+            }
+            [data-testid="stDataFrame"] [role="row"]:hover {
+                background: rgba(129,140,248,0.04) !important;
+            }
+
+            /* Expander polish */
+            .streamlit-expanderHeader, [data-testid="stExpander"] summary {
+                background: var(--pq-surface-1) !important;
+                border-radius: var(--pq-radius) !important;
+                font-weight: 700 !important;
+                color: var(--pq-text) !important;
+            }
+            [data-testid="stExpander"] {
+                border: 1px solid var(--pq-border) !important;
+                border-radius: var(--pq-radius) !important;
+                background: var(--pq-surface-1) !important;
+            }
+
+            /* Headings */
+            h1, h2, h3, h4 {
+                letter-spacing: -0.02em;
+                color: var(--pq-text);
+            }
+            h3 { font-weight: 800; }
+            h4 { font-weight: 700; color: var(--pq-text-2); }
+
+            .block-container { max-width: 1180px; padding-bottom: 2rem; }
 
         </style>
         """,
@@ -2334,12 +2650,6 @@ def _render_value_plays_dataframe(df: pd.DataFrame) -> None:
 
 
 def render_top_value_plays() -> None:
-    st.markdown("### 🔥 Top Value Plays")
-    st.caption(
-        f"Elite tier — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% · "
-        f"top {VALUE_PLAYS_MAX} sharpest edges"
-    )
-
     if st.button("↻ Refresh markets", key="refresh_poly"):
         fetch_polymarket_markets.clear()
         st.rerun()
@@ -2466,8 +2776,6 @@ def _render_audit_results(
 
 
 def render_audit_my_bet() -> None:
-    st.markdown("### ⚖️ Audit My Bet")
-
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
@@ -2501,8 +2809,6 @@ def render_audit_my_bet() -> None:
 
 
 def render_hype_vs_reality() -> None:
-    st.markdown("### 📣 Hype vs. Reality")
-
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What people are saying</p>', unsafe_allow_html=True)
@@ -2514,19 +2820,37 @@ def render_hype_vs_reality() -> None:
         st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p>', unsafe_allow_html=True)
 
     delta = sentiment - implied_prob
+    abs_delta = abs(delta)
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Divergence", f"{delta:+.1f}%", help="Sentiment minus true probability")
+    m2.metric("Trigger Threshold", f"±{DIVERGENCE_TRIGGER:.0f}%",
+              help="Above this, the narrative is diverging from the math")
+    severity = "Hot" if abs_delta >= DIVERGENCE_TRIGGER else "Mild" if abs_delta >= 8 else "Aligned"
+    m3.metric("Signal", severity)
+
     if delta >= DIVERGENCE_TRIGGER:
         st.markdown(
-            '<div class="pq-bubble-badge">Narrative bubble — consider fading the public</div>',
+            f'<div class="pq-bubble-badge">🔥 Narrative bubble · '
+            f'crowd is {delta:+.0f}% above true probability — consider fading the public</div>',
             unsafe_allow_html=True,
         )
     elif delta <= -DIVERGENCE_TRIGGER:
         st.markdown(
-            '<div class="pq-card"><span class="pq-badge pq-badge-blue">Crowd too bearish — YES may be cheap</span></div>',
+            f'<div class="pq-card pq-card-compound">'
+            f'<p class="pq-card-title">💎 Crowd too bearish</p>'
+            f'<p style="margin:0;color:var(--pq-text-2);font-size:0.86rem;line-height:1.45;">'
+            f'Sentiment lags the math by {abs_delta:.0f}% — YES may be cheap relative to the model.</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            '<div class="pq-card"><span class="pq-badge pq-badge-grey">Aligned — no narrative edge right now</span></div>',
+            f'<div class="pq-card">'
+            f'<p class="pq-card-title" style="color:var(--pq-muted);">⏸ Aligned</p>'
+            f'<p style="margin:0;color:var(--pq-faint);font-size:0.84rem;line-height:1.45;">'
+            f'Crowd and model are within ±{DIVERGENCE_TRIGGER:.0f}% — no narrative edge right now.</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
@@ -2616,7 +2940,6 @@ def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
 
 
 def render_explore_hub() -> None:
-    st.markdown("### 🔍 Explore")
     query = st.session_state.get("global_search_query", "").strip().lower()
 
     try:
@@ -3079,7 +3402,6 @@ def _render_arb_recipe(
 
 
 def render_risk_free_arbs() -> None:
-    st.markdown("### 💰 Risk-Free Arbs")
     st.caption(
         "Pick one market on each exchange. Each strategy now shows exact contract sizing, "
         "cash needed per book, payout, profit, and the no-lock warning when prices are too high."
@@ -3435,8 +3757,6 @@ POLYMARKET_WALLET_ADDRESS=0xYourPolygonAddress""",
 
 
 def render_ledger() -> None:
-    st.markdown("### 📒 The Ledger")
-
     creds = _ledger_credentials()
     _render_api_keys_setup_panel(creds)
 
@@ -3500,82 +3820,314 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown("""
-    <style>
-    /* Minimize top padding of the main container */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 95% !important;
-    }
-    /* Hide the default Streamlit header bar decoration */
-    header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-
-    /* ── Quant terminal theme ── */
-    .stApp {
-        background-color: #050505 !important;
-        color: #e5e7eb !important;
-    }
-    section[data-testid="stSidebar"],
-    section[data-testid="stSidebar"] > div {
-        background-color: #0A0C10 !important;
-    }
-
-    /* Stylized container tiles */
-    [data-testid="stMetricContainer"] {
-        background-color: #0E121A !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-        padding: 10px 15px !important;
-    }
-    div.stExpander {
-        background-color: #0A0C10 !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 _inject_global_css()
 _init_session()
 
 
-def _render_deploy_strip() -> None:
-    """Always-visible deploy fingerprint so Cloud vs local is obvious."""
+# --------------------------------------------------------------------------- #
+# App shell — modern header, status, market pulse, onboarding, tab headers
+# --------------------------------------------------------------------------- #
+
+
+def _safe_pulse_stats() -> dict[str, Any]:
+    """Compute lightweight market-pulse stats with safe fallbacks."""
+    stats: dict[str, Any] = {
+        "markets_tracked": None,
+        "anomalies": None,
+        "total_volume": None,
+        "best_edge": None,
+        "avg_edge": None,
+        "kalshi_markets": None,
+        "today_pnl": None,
+        "data_status": "Live",
+    }
+
+    try:
+        poly_df = fetch_polymarket_markets()
+    except Exception:
+        poly_df = pd.DataFrame()
+        stats["data_status"] = "Cached"
+
+    try:
+        kalshi_df = fetch_kalshi_markets()
+    except Exception:
+        kalshi_df = pd.DataFrame()
+
+    poly_n = int(len(poly_df)) if not poly_df.empty else 0
+    kalshi_n = int(len(kalshi_df)) if not kalshi_df.empty else 0
+    stats["markets_tracked"] = poly_n + kalshi_n
+    stats["kalshi_markets"] = kalshi_n
+
+    if not poly_df.empty and "Volume" in poly_df.columns:
+        try:
+            stats["total_volume"] = float(pd.to_numeric(poly_df["Volume"], errors="coerce").fillna(0).sum())
+        except Exception:
+            stats["total_volume"] = None
+
+    try:
+        elite_df = _filter_value_plays(poly_df) if not poly_df.empty else pd.DataFrame()
+        stats["anomalies"] = int(len(elite_df))
+        if not elite_df.empty and "Net EV Edge %" in elite_df.columns:
+            edges = pd.to_numeric(elite_df["Net EV Edge %"], errors="coerce").dropna()
+            if len(edges):
+                stats["best_edge"] = float(edges.max())
+                stats["avg_edge"] = float(edges.mean())
+    except Exception:
+        pass
+
+    try:
+        ledger = fetch_unified_ledger()
+        if not ledger.empty:
+            today = datetime.now(timezone.utc).date()
+            daily = _ledger_daily_pnl(ledger)
+            stats["today_pnl"] = float(daily.get(today, 0.0))
+    except Exception:
+        pass
+
+    return stats
+
+
+def _fmt_volume(v: Optional[float]) -> str:
+    if v is None:
+        return "—"
+    if v >= 1_000_000_000:
+        return f"${v / 1_000_000_000:.1f}B"
+    if v >= 1_000_000:
+        return f"${v / 1_000_000:.1f}M"
+    if v >= 1_000:
+        return f"${v / 1_000:.0f}K"
+    return f"${v:,.0f}"
+
+
+def _render_status_strip() -> None:
+    """Slim status pill: live data + build fingerprint."""
     st.markdown(
         f"""
-        <div style="background:#0d2818;border:1px solid #3fb950;border-radius:6px;
-        padding:0.4rem 0.7rem;margin-bottom:0.45rem;font-size:0.76rem;color:#8b949e;">
-        <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
-        &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
-        <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
-        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        <div class="pq-status-strip">
+            <span class="pq-status-dot"></span>
+            <span class="pq-status-live">LIVE</span>
+            <span>· Polymarket &amp; Kalshi feeds active</span>
+            <span style="margin-left:auto;">
+                Build <code>{html.escape(APP_BUILD)}</code>
+                <span style="opacity:0.7;">· {html.escape(GIT_SHA)}</span>
+            </span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-_render_deploy_strip()
+def _render_app_header() -> None:
+    """Modern brand header with animated live indicator."""
+    st.markdown(
+        f"""
+        <div class="pq-topbar">
+            <span class="pq-topbar-brand">
+                <span class="pq-brand-mark">PQ</span>
+                <span class="pq-brand-name">POLY-QUANT</span>
+                <span class="pq-brand-tag">Terminal</span>
+            </span>
+            <span class="pq-topbar-meta">
+                <span class="dot"></span>
+                Polymarket &amp; Kalshi · cross-book intelligence
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown(
-    f"""
-    <div class="pq-topbar">
-        <span class="pq-topbar-brand">POLY-QUANT</span>
-        <span class="pq-topbar-meta">Polymarket · Kalshi ·
-        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+
+def _render_market_pulse(stats: dict[str, Any]) -> None:
+    """Data-driven KPI strip at the top of the app."""
+    markets = stats.get("markets_tracked")
+    anomalies = stats.get("anomalies")
+    total_vol = stats.get("total_volume")
+    best_edge = stats.get("best_edge")
+    avg_edge = stats.get("avg_edge")
+    today_pnl = stats.get("today_pnl")
+    kalshi_n = stats.get("kalshi_markets")
+
+    def tile(label: str, value: str, sub: str, accent: str = "",
+             value_cls: str = "") -> str:
+        return f"""
+            <div class="pq-pulse-tile {accent}">
+                <div class="pq-pulse-label">{html.escape(label)}</div>
+                <div class="pq-pulse-value {value_cls}">{value}</div>
+                <div class="pq-pulse-sub">{sub}</div>
+            </div>
+        """
+
+    markets_val = f"{markets:,}" if markets else "—"
+    markets_sub = f"Kalshi adds {kalshi_n:,}" if kalshi_n else "Polymarket Gamma feed"
+
+    anomalies_val = f"{anomalies}" if anomalies is not None else "—"
+    anomalies_sub = "Elite NO-side edges" if anomalies else "No anomalies — hold fire"
+
+    vol_val = _fmt_volume(total_vol)
+    vol_sub = "24h Polymarket notional"
+
+    if best_edge is not None:
+        edge_val = f"+{best_edge:.1f}%"
+        edge_sub = f"Avg edge {avg_edge:+.1f}%" if avg_edge is not None else "Net EV after fees"
+    else:
+        edge_val = "—"
+        edge_sub = "Awaiting fresh anomalies"
+
+    if today_pnl is None:
+        pnl_val = "—"
+        pnl_sub = "Connect a book to track"
+        pnl_cls = ""
+    elif today_pnl > 0:
+        pnl_val = f"+${today_pnl:,.0f}"
+        pnl_sub = "Today, all books"
+        pnl_cls = "pos"
+    elif today_pnl < 0:
+        pnl_val = f"-${abs(today_pnl):,.0f}"
+        pnl_sub = "Today, all books"
+        pnl_cls = "neg"
+    else:
+        pnl_val = "$0"
+        pnl_sub = "Flat session"
+        pnl_cls = ""
+
+    tiles_html = (
+        tile("Markets Tracked", markets_val, markets_sub, "accent-cyan")
+        + tile("Live Anomalies", anomalies_val, anomalies_sub, "accent-emerald")
+        + tile("Top Edge", edge_val, edge_sub)
+        + tile("24h Volume", vol_val, vol_sub, "accent-amber")
+        + tile("Your P&L Today", pnl_val, pnl_sub,
+               "accent-rose" if pnl_cls == "neg" else "accent-emerald" if pnl_cls == "pos" else "",
+               pnl_cls)
+    )
+
+    st.markdown(
+        f'<div class="pq-pulse-grid">{tiles_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_onboarding_guide() -> None:
+    """Collapsible 'How POLY-QUANT works' guide for new users."""
+    with st.expander("🧭 How POLY-QUANT works — quick start", expanded=False):
+        st.markdown(
+            """
+            <div class="pq-onboard">
+                <p class="pq-onboard-title">Four steps from idea to execution</p>
+                <div class="pq-onboard-steps">
+                    <div class="pq-onboard-step">
+                        <span class="num">1</span>
+                        <span class="body">
+                            <strong>Scan Value Plays</strong>
+                            <span>Elite NO-side edges where the model beats the line by 5%+ net of fees.</span>
+                        </span>
+                    </div>
+                    <div class="pq-onboard-step">
+                        <span class="num">2</span>
+                        <span class="body">
+                            <strong>Explore the catalog</strong>
+                            <span>Filter Polymarket + Kalshi by sport, category, or your own search.</span>
+                        </span>
+                    </div>
+                    <div class="pq-onboard-step">
+                        <span class="num">3</span>
+                        <span class="body">
+                            <strong>Audit your bet</strong>
+                            <span>Run any price through the EV engine and get a clear PLAY / PASS verdict.</span>
+                        </span>
+                    </div>
+                    <div class="pq-onboard-step">
+                        <span class="num">4</span>
+                        <span class="body">
+                            <strong>Lock cross-book arbs</strong>
+                            <span>Pair Polymarket vs Kalshi for guaranteed-return tickets when costs sum below $1.00.</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def _render_tab_head(emoji: str, title: str, subtitle: str, tip: str | None = None) -> None:
+    """Consistent per-tab header with title, subtitle, and an optional workflow hint."""
+    st.markdown(
+        f"""
+        <div class="pq-tab-head">
+            <div>
+                <h2>{emoji} {html.escape(title)}</h2>
+                <p class="pq-tab-sub">{html.escape(subtitle)}</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if tip:
+        st.markdown(
+            f'<div class="pq-tab-hint">{tip}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+_render_status_strip()
+_render_app_header()
+
+try:
+    _render_market_pulse(_safe_pulse_stats())
+except Exception:
+    pass
+
+_render_onboarding_guide()
 
 tool_l, tool_r = st.columns([3, 1])
 with tool_l:
     render_global_search_bar()
 with tool_r:
     render_odds_format_toggle()
+
+
+_TAB_HEADERS: dict[str, dict[str, str]] = {
+    "plays": {
+        "emoji": "🔥",
+        "title": "Top Value Plays",
+        "subtitle": f"Elite tier · win prob > {VALUE_PLAYS_WIN_MIN:.0f}% · net EV ≥ {VALUE_PLAYS_EV_EDGE_MIN:.0f}%",
+        "tip": "<strong>Read it like a hot list.</strong> Each row is a NO-side edge our model says the market is mispricing. "
+               "Sort by <em>Quant Edge</em> and start with the biggest — but check liquidity before sizing.",
+    },
+    "explore": {
+        "emoji": "🔍",
+        "title": "Explore the Market Catalog",
+        "subtitle": "Browse every active Polymarket + Kalshi contract — filter, search, then send into Arbs or Audit.",
+        "tip": "<strong>One-tap workflow.</strong> Hit <em>Select market</em> on any row to load it into the Arbs and Audit tabs instantly.",
+    },
+    "audit": {
+        "emoji": "⚖️",
+        "title": "Audit My Bet",
+        "subtitle": "Enter your win estimate + price and get a PLAY / PASS verdict with sizing.",
+        "tip": "<strong>How it works:</strong> EV = (P_win × profit) − (P_loss × stake). "
+               "We bake in the platform fee and surface a Kelly allocation so you size sanely.",
+    },
+    "hype": {
+        "emoji": "📣",
+        "title": "Hype vs Reality",
+        "subtitle": "Compare crowd sentiment to the math — fade narratives when divergence is big.",
+        "tip": "<strong>Divergence ≥ 20%</strong> flags a potential narrative bubble. "
+               "Crowd over-bullish? Consider the other side.",
+    },
+    "arb": {
+        "emoji": "💰",
+        "title": "Risk-Free Cross-Book Arbs",
+        "subtitle": "Pair Polymarket vs Kalshi — lock guaranteed profit when combined cost is below $1.00.",
+        "tip": "<strong>The recipe:</strong> Buy YES on one book, NO on the other for the same outcome. "
+               "If the costs add to less than $1.00, you've locked an arbitrage.",
+    },
+    "ledger": {
+        "emoji": "📒",
+        "title": "The Ledger",
+        "subtitle": "Live P&L, win-rate, and a daily heatmap across all connected books.",
+        "tip": "<strong>Connect to track.</strong> Add Kalshi and Polymarket API keys to sync fills automatically — see the setup panel below.",
+    },
+}
 
 
 def main() -> None:
@@ -3590,29 +4142,41 @@ def main() -> None:
         [
             "🔥 Value Plays",
             "🔍 Explore",
-            "⚖️ Check Bet",
-            "📣 Sentiment",
+            "⚖️ Audit Bet",
+            "📣 Hype vs Reality",
             "💰 Arbs",
             "📒 Ledger",
         ]
     )
 
     with tab_plays:
+        h = _TAB_HEADERS["plays"]
+        _render_tab_head(h["emoji"], h["title"], h["subtitle"], h["tip"])
         render_top_value_plays()
 
     with tab_explore:
+        h = _TAB_HEADERS["explore"]
+        _render_tab_head(h["emoji"], h["title"], h["subtitle"], h["tip"])
         render_explore_hub()
 
     with tab_audit:
+        h = _TAB_HEADERS["audit"]
+        _render_tab_head(h["emoji"], h["title"], h["subtitle"], h["tip"])
         render_audit_my_bet()
 
     with tab_hype:
+        h = _TAB_HEADERS["hype"]
+        _render_tab_head(h["emoji"], h["title"], h["subtitle"], h["tip"])
         render_hype_vs_reality()
 
     with tab_arb:
+        h = _TAB_HEADERS["arb"]
+        _render_tab_head(h["emoji"], h["title"], h["subtitle"], h["tip"])
         render_risk_free_arbs()
 
     with tab_ledger:
+        h = _TAB_HEADERS["ledger"]
+        _render_tab_head(h["emoji"], h["title"], h["subtitle"], h["tip"])
         render_ledger()
 
 
