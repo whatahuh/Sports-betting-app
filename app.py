@@ -59,7 +59,7 @@ REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
 APP_BUILD = "3.0.0-perf-calendar"
-GIT_SHA = "e5bb736"
+GIT_SHA = "6f2cc3c"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
