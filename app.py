@@ -58,8 +58,8 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.0.0-perf-calendar"
-GIT_SHA = "6f2cc3c"
+APP_BUILD = "3.1.0-arb-detail-cards"
+GIT_SHA = "a439aeb"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
@@ -952,6 +952,7 @@ def _sync_kalshi_auto_suggest(
             best_score, best_ticker, _ = suggestions[0]
             if best_score >= 0.20:
                 st.session_state.kalshi_selected = best_ticker
+                st.session_state.kalshi_selected_picker_open = False
             st.session_state.kalshi_selected_page = 0
             seed_tokens = list(_tokenize_for_match(poly_title))[:6]
             if seed_tokens:
@@ -992,6 +993,7 @@ def _render_kalshi_suggestions(
             type="primary" if st.session_state.get("kalshi_selected") == ticker else "secondary",
         ):
             st.session_state.kalshi_selected = ticker
+            st.session_state.kalshi_selected_picker_open = False
             st.rerun()
 
 
@@ -1010,6 +1012,7 @@ def render_searchable_picker(
     session_key: str,
     *,
     show_prices: Optional[dict[str, str]] = None,
+    collapse_after_select: bool = False,
 ) -> Optional[str]:
     """
   Mobile-friendly market picker: search → paginated tap-to-select cards.
@@ -1020,14 +1023,36 @@ def render_searchable_picker(
         return None
 
     ids = list(options.keys())
+    open_key = f"{session_key}_picker_open"
+    if open_key not in st.session_state:
+        st.session_state[open_key] = True
+
     if st.session_state.get(session_key) not in options:
         st.session_state[session_key] = ids[0]
+        st.session_state[open_key] = True
 
     page_key = f"{session_key}_page"
     if page_key not in st.session_state:
         st.session_state[page_key] = 0
 
     st.markdown(f'<p class="pq-section-label">{label}</p>', unsafe_allow_html=True)
+    sel_id = st.session_state.get(session_key)
+    if collapse_after_select and sel_id in options and not st.session_state.get(open_key, True):
+        selected_price = ""
+        if show_prices and sel_id in show_prices:
+            selected_price = (
+                f'<span class="pq-pick-meta">{html.escape(show_prices[sel_id])}</span>'
+            )
+        st.markdown(
+            f'<div class="pq-selected-banner"><strong>Selected:</strong> '
+            f'{html.escape(options.get(sel_id, ""))}{selected_price}</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(f"Change {label}", key=f"{session_key}_change", use_container_width=True):
+            st.session_state[open_key] = True
+            st.rerun()
+        return sel_id
+
     search_col, _ = st.columns([3, 1])
     with search_col:
         query = st.text_input(
@@ -1073,6 +1098,8 @@ def render_searchable_picker(
             type="primary" if selected else "secondary",
         ):
             st.session_state[session_key] = mid
+            if collapse_after_select:
+                st.session_state[open_key] = False
             st.rerun()
 
     nav1, nav2, nav3 = st.columns([1, 2, 1])
@@ -1796,6 +1823,75 @@ def _inject_global_css() -> None:
                 margin-top: 0.15rem;
             }
             .pq-metric-box .val.green { color: #3fb950; }
+            .pq-metric-box .val.red { color: #f85149; }
+            .pq-arb-detail {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 12px;
+                padding: 0.8rem;
+                margin-top: 0.7rem;
+            }
+            .pq-arb-detail-title {
+                margin: 0 0 0.5rem;
+                color: #f0f2f5;
+                font-size: 0.78rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+            }
+            .pq-arb-ticket-row {
+                display: grid;
+                grid-template-columns: 1.25fr 0.75fr 0.8fr 0.9fr;
+                gap: 0.45rem;
+                align-items: center;
+                padding: 0.5rem 0;
+                border-top: 1px solid #21262d;
+                font-size: 0.78rem;
+                color: #c9d1d9;
+            }
+            .pq-arb-ticket-row.header {
+                border-top: 0;
+                padding-top: 0;
+                color: #8b949e;
+                font-size: 0.66rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .pq-arb-ticket-row strong {
+                color: #f0f2f5;
+                font-weight: 800;
+            }
+            .pq-arb-ticket-row .cash {
+                color: #58a6ff;
+                font-weight: 800;
+                text-align: right;
+            }
+            .pq-arb-explain {
+                margin: 0.65rem 0 0;
+                color: #c9d1d9;
+                font-size: 0.82rem;
+                line-height: 1.48;
+            }
+            .pq-arb-explain strong { color: #f0f2f5; }
+            .pq-arb-warning {
+                background: rgba(248,81,73,0.12);
+                border: 1px solid rgba(248,81,73,0.45);
+                border-radius: 10px;
+                color: #ffb3ad;
+                font-size: 0.8rem;
+                line-height: 1.45;
+                margin-top: 0.7rem;
+                padding: 0.7rem 0.75rem;
+            }
+            @media (max-width: 480px) {
+                .pq-arb-ticket-row {
+                    grid-template-columns: 1fr 0.62fr;
+                    gap: 0.28rem 0.45rem;
+                }
+                .pq-arb-ticket-row.header { display: none; }
+                .pq-arb-ticket-row .cash { text-align: left; }
+            }
 
             /* Kalshi auto-suggest */
             .pq-suggest-card {
@@ -2380,9 +2476,11 @@ def _sync_selection_from_catalog(row: pd.Series) -> None:
     """Push explore selection into arb pickers."""
     if row["Source"] == "Polymarket":
         st.session_state.poly_selected = row["id"]
+        st.session_state.poly_selected_picker_open = False
         st.session_state.arb_poly_anchor = None
     else:
         st.session_state.kalshi_selected = row["id"]
+        st.session_state.kalshi_selected_picker_open = False
 
 
 def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
@@ -2585,27 +2683,53 @@ def _render_arb_strategy_card(
     stake: float,
     odds_fmt: str,
 ) -> None:
-    """One arb recipe with legs, combined cost, ROI, and profit at stake."""
+    """One arb recipe with a full ticket and settlement math."""
     total_cost = poly_price + kalshi_price
-    net, roi = _arb_opportunity(total_cost)
+    _, roi = _arb_opportunity(total_cost)
     is_arb = total_cost < 1.0
-    profit = net * stake
-    total_outlay = stake * 2.0
+    contracts = stake
+    poly_cash = contracts * poly_price
+    kalshi_cash = contracts * kalshi_price
+    total_outlay = poly_cash + kalshi_cash
+    guaranteed_payout = contracts
+    profit = guaranteed_payout - total_outlay
+    break_even_gap = 1.0 - total_cost
+    profit_text = f"{'+' if profit >= 0 else '-'}${abs(profit):,.2f}"
 
     poly_odds = format_odds_display(poly_price, odds_fmt)
     kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
     poly_c = poly_price * 100.0
     kalshi_c = kalshi_price * 100.0
+    total_c = total_cost * 100.0
 
     card_cls = "pq-strategy-card pq-strategy-live" if is_arb else "pq-strategy-card"
     badge_cls = "pq-strategy-badge live" if is_arb else "pq-strategy-badge dead"
-    badge_txt = "🔒 Arb locked" if is_arb else "No lock"
+    badge_txt = "Arb locked" if is_arb else "No lock"
+    profit_class = "green" if is_arb else "red"
+    profit_label = "Guaranteed profit" if is_arb else "Worst-case loss"
+    outcome_a = f"If the event resolves {poly_side}, Polymarket pays ${guaranteed_payout:,.2f}."
+    outcome_b = f"If the event resolves {kalshi_side}, Kalshi pays ${guaranteed_payout:,.2f}."
+    pricing_note = (
+        f"You are paying {total_c:.1f}c for $1.00 of coverage, leaving "
+        f"{break_even_gap * 100:.1f}c of locked edge per contract."
+        if is_arb
+        else (
+            f"This costs {total_c:.1f}c for $1.00 of coverage. It needs to be below "
+            f"100.0c, so wait for at least {(total_cost - 1.0) * 100:.1f}c of improvement."
+        )
+    )
 
     lock_html = ""
     if is_arb:
         lock_html = (
             f'<div class="pq-lock-banner">Guaranteed +${profit:.2f} profit on '
-            f"${total_outlay:,.0f} total outlay</div>"
+            f"${total_outlay:,.2f} total outlay</div>"
+        )
+    else:
+        lock_html = (
+            '<div class="pq-arb-warning"><strong>Not a risk-free bet yet.</strong> '
+            f"At these prices, the paired ticket loses ${abs(profit):,.2f} before fees "
+            "or slippage. Do not place it as an arb unless the combined cost drops under 100c.</div>"
         )
 
     st.markdown(
@@ -2620,30 +2744,55 @@ def _render_arb_strategy_card(
                     <div class="venue">Polymarket</div>
                     <div class="leg">Buy {html.escape(poly_side)}</div>
                     <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
-                        {poly_c:.1f}¢ · {html.escape(poly_odds)} · ${stake:,.0f}
+                        {poly_c:.1f}¢ · {html.escape(poly_odds)} · {contracts:,.0f} contracts
                     </div>
                 </div>
                 <div class="pq-split-side">
                     <div class="venue">Kalshi</div>
                     <div class="leg">Buy {html.escape(kalshi_side)}</div>
                     <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
-                        {kalshi_c:.1f}¢ · {html.escape(kalshi_odds)} · ${stake:,.0f}
+                        {kalshi_c:.1f}¢ · {html.escape(kalshi_odds)} · {contracts:,.0f} contracts
                     </div>
                 </div>
             </div>
             <div class="pq-strategy-metrics">
                 <div class="pq-metric-box">
                     <span class="lbl">Combined cost</span>
-                    <span class="val">{total_cost * 100:.1f}¢ / $1</span>
+                    <span class="val">{total_c:.1f}¢ / $1</span>
                 </div>
                 <div class="pq-metric-box">
-                    <span class="lbl">ROI</span>
-                    <span class="val {'green' if is_arb else ''}">{roi:+.2f}%</span>
+                    <span class="lbl">{profit_label}</span>
+                    <span class="val {profit_class}">{profit_text}</span>
                 </div>
                 <div class="pq-metric-box">
-                    <span class="lbl">Net edge</span>
-                    <span class="val {'green' if is_arb else ''}">${net:.4f}/$1</span>
+                    <span class="lbl">ROI on outlay</span>
+                    <span class="val {profit_class}">{roi:+.2f}%</span>
                 </div>
+            </div>
+            <div class="pq-arb-detail">
+                <p class="pq-arb-detail-title">Exact bet ticket for ${guaranteed_payout:,.0f} payout</p>
+                <div class="pq-arb-ticket-row header">
+                    <span>Book / side</span><span>Price</span><span>Contracts</span><span class="cash">Cash needed</span>
+                </div>
+                <div class="pq-arb-ticket-row">
+                    <span><strong>Polymarket {html.escape(poly_side)}</strong></span>
+                    <span>{poly_c:.1f}c</span>
+                    <span>{contracts:,.2f}</span>
+                    <span class="cash">${poly_cash:,.2f}</span>
+                </div>
+                <div class="pq-arb-ticket-row">
+                    <span><strong>Kalshi {html.escape(kalshi_side)}</strong></span>
+                    <span>{kalshi_c:.1f}c</span>
+                    <span>{contracts:,.2f}</span>
+                    <span class="cash">${kalshi_cash:,.2f}</span>
+                </div>
+                <p class="pq-arb-explain">
+                    Total cash outlay is <strong>${total_outlay:,.2f}</strong>.
+                    {html.escape(outcome_a)} {html.escape(outcome_b)}
+                    Guaranteed payout is <strong>${guaranteed_payout:,.2f}</strong>, so the locked result is
+                    <strong>{profit_text}</strong> before fees and execution slippage.
+                </p>
+                <p class="pq-arb-explain">{html.escape(pricing_note)}</p>
             </div>
         </div>
         {lock_html}
@@ -2719,17 +2868,25 @@ def _render_arb_recipe(
 
 def render_risk_free_arbs() -> None:
     st.markdown("### 💰 Risk-Free Arbs")
-    st.caption("Pick one market on each exchange · we compare YES/NO and show both arb recipes.")
+    st.caption(
+        "Pick one market on each exchange. Each strategy now shows exact contract sizing, "
+        "cash needed per book, payout, profit, and the no-lock warning when prices are too high."
+    )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
         arb_stake = st.number_input(
-            "Stake per leg ($)",
+            "Target payout / contracts",
             min_value=1.0,
             value=DEFAULT_ARB_STAKE,
             step=10.0,
             key="arb_stake",
+            help=(
+                "Arb sizing uses equal contracts on both books. "
+                "A value of 100 means buy 100 Polymarket contracts and 100 Kalshi contracts, "
+                "so either outcome pays $100 before fees."
+            ),
         )
     with c2:
         if st.button("↻ Refresh prices", key="refresh_arb", use_container_width=True):
@@ -2772,7 +2929,11 @@ def render_risk_free_arbs() -> None:
     }
 
     poly_id = render_searchable_picker(
-        "Polymarket Event", poly_options, "poly_selected", show_prices=poly_prices,
+        "Polymarket Event",
+        poly_options,
+        "poly_selected",
+        show_prices=poly_prices,
+        collapse_after_select=True,
     )
     if not poly_id:
         return
@@ -2782,7 +2943,11 @@ def render_risk_free_arbs() -> None:
     _render_kalshi_suggestions(suggestions, kalshi_prices)
 
     kalshi_ticker = render_searchable_picker(
-        "Kalshi Event", kalshi_options, "kalshi_selected", show_prices=kalshi_prices,
+        "Kalshi Event",
+        kalshi_options,
+        "kalshi_selected",
+        show_prices=kalshi_prices,
+        collapse_after_select=True,
     )
     if not kalshi_ticker:
         return
