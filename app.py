@@ -1155,105 +1155,256 @@ def _inject_global_css() -> None:
     st.markdown(
         """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
 
             #MainMenu, header, footer, .stDeployButton {visibility: hidden; display: none;}
 
+            :root {
+                --bg-base: #060a14;
+                --bg-surface: #0b1022;
+                --bg-elevated: #101525;
+                --bg-input: #090d1c;
+                --border-subtle: #181e31;
+                --border-default: #222847;
+                --border-emphasis: #2e3a5e;
+                --primary: #5b7af5;
+                --primary-dim: rgba(91,122,245,0.1);
+                --primary-glow: rgba(91,122,245,0.22);
+                --cyan: #06b6d4;
+                --cyan-dim: rgba(6,182,212,0.1);
+                --success: #10b981;
+                --success-dim: rgba(16,185,129,0.12);
+                --success-glow: rgba(16,185,129,0.25);
+                --warning: #f59e0b;
+                --warning-dim: rgba(245,158,11,0.12);
+                --danger: #f43f5e;
+                --danger-dim: rgba(244,63,94,0.12);
+                --danger-glow: rgba(244,63,94,0.2);
+                --gold: #fbbf24;
+                --gold-dim: rgba(251,191,36,0.15);
+                --text-primary: #eaf0ff;
+                --text-secondary: #8896b8;
+                --text-muted: #404d6b;
+                --radius-sm: 8px;
+                --radius-md: 12px;
+                --radius-lg: 16px;
+                --radius-xl: 20px;
+            }
+
             .stApp {
-                background: #000000;
-                color: #f0f2f5;
+                background: var(--bg-base);
+                color: var(--text-primary);
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             }
 
             .block-container {
-                padding: 0.5rem 0.85rem 1.5rem;
+                padding: 0.5rem 1rem 2rem;
                 max-width: 100%;
             }
 
-            /* Compact top bar (replaces bulky hero) */
+            /* ── TOP BAR ── */
             .pq-topbar {
                 display: flex;
-                align-items: baseline;
+                align-items: center;
                 justify-content: space-between;
                 flex-wrap: wrap;
-                gap: 0.35rem 0.75rem;
-                padding: 0.15rem 0 0.5rem;
-                margin-bottom: 0.35rem;
-                border-bottom: 1px solid #21262d;
+                gap: 0.5rem 1rem;
+                padding: 0.6rem 0 0.75rem;
+                margin-bottom: 0.5rem;
+                border-bottom: 1px solid var(--border-subtle);
+            }
+            .pq-topbar-left {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+            .pq-topbar-logo {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
             }
             .pq-topbar-brand {
-                font-size: 1rem;
-                font-weight: 800;
-                letter-spacing: -0.02em;
-                color: #ffffff;
+                font-size: 1.1rem;
+                font-weight: 900;
+                letter-spacing: -0.03em;
+                background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 50%, #6366f1 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .pq-topbar-version {
+                font-size: 0.65rem;
+                font-weight: 700;
+                color: var(--text-muted);
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: 4px;
+                padding: 0.1rem 0.35rem;
+                font-family: 'JetBrains Mono', monospace;
             }
             .pq-topbar-meta {
                 font-size: 0.72rem;
                 font-weight: 500;
-                color: #8b949e;
+                color: var(--text-muted);
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .pq-live-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--success);
+                box-shadow: 0 0 6px var(--success);
+                display: inline-block;
+                animation: pulse-dot 2s ease-in-out infinite;
+            }
+            @keyframes pulse-dot {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.6; transform: scale(0.8); }
             }
 
-            /* Header (legacy hero — unused) */
-            .pq-hero {
-                background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 0.85rem 1.1rem;
-                margin-bottom: 0.65rem;
+            /* ── STATS STRIP ── */
+            .pq-stats-strip {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0.6rem;
+                margin-bottom: 0.85rem;
             }
-            .pq-hero h1 {
-                margin: 0;
-                font-size: 1.15rem;
-                font-weight: 800;
+            @media (max-width: 640px) {
+                .pq-stats-strip { grid-template-columns: repeat(2, 1fr); }
+            }
+            .pq-stat-tile {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 0.7rem 0.85rem;
+                position: relative;
+                overflow: hidden;
+            }
+            .pq-stat-tile::before {
+                content: '';
+                position: absolute;
+                top: 0; left: 0; right: 0;
+                height: 2px;
+                background: var(--tile-accent, var(--primary));
+                border-radius: 2px 2px 0 0;
+            }
+            .pq-stat-tile-label {
+                font-size: 0.62rem;
+                font-weight: 700;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                margin-bottom: 0.25rem;
+            }
+            .pq-stat-tile-value {
+                font-size: 1.25rem;
+                font-weight: 900;
+                color: var(--text-primary);
+                line-height: 1.1;
+                font-family: 'JetBrains Mono', monospace;
                 letter-spacing: -0.02em;
-                color: #ffffff;
             }
-            .pq-hero p {
-                margin: 0.2rem 0 0;
-                font-size: 0.78rem;
-                color: #8b949e;
-                font-weight: 500;
+            .pq-stat-tile-sub {
+                font-size: 0.65rem;
+                color: var(--text-muted);
+                margin-top: 0.15rem;
             }
 
-            /* Tabs */
+            /* ── HOW TO USE BANNER ── */
+            .pq-onboard-strip {
+                background: linear-gradient(135deg, rgba(91,122,245,0.1) 0%, rgba(6,182,212,0.06) 100%);
+                border: 1px solid rgba(91,122,245,0.25);
+                border-radius: var(--radius-md);
+                padding: 0.7rem 1rem;
+                margin-bottom: 0.85rem;
+                display: flex;
+                align-items: flex-start;
+                gap: 0.65rem;
+            }
+            .pq-onboard-icon {
+                font-size: 1.3rem;
+                line-height: 1;
+                flex-shrink: 0;
+                margin-top: 0.05rem;
+            }
+            .pq-onboard-text {
+                font-size: 0.8rem;
+                color: var(--text-secondary);
+                line-height: 1.5;
+            }
+            .pq-onboard-text strong {
+                color: var(--text-primary);
+                font-weight: 700;
+            }
+            .pq-onboard-steps {
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+                margin-top: 0.45rem;
+            }
+            .pq-onboard-step {
+                background: var(--primary-dim);
+                border: 1px solid rgba(91,122,245,0.3);
+                border-radius: 999px;
+                padding: 0.2rem 0.65rem;
+                font-size: 0.72rem;
+                font-weight: 600;
+                color: #a5b4fc;
+            }
+
+            /* ── TABS ── */
             .stTabs [data-baseweb="tab-list"] {
-                gap: 6px;
+                gap: 4px;
                 background: transparent;
-                border-bottom: 1px solid #21262d;
+                border-bottom: 1px solid var(--border-subtle);
                 padding-bottom: 0;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
             }
             .stTabs [data-baseweb="tab"] {
                 background: transparent;
-                color: #8b949e;
+                color: var(--text-muted);
                 font-weight: 600;
                 font-size: 0.82rem;
                 padding: 8px 14px;
                 border-radius: 8px 8px 0 0;
                 border: none;
+                white-space: nowrap !important;
+                flex-shrink: 0 !important;
+                transition: color 0.15s;
+            }
+            .stTabs [data-baseweb="tab"]:hover {
+                color: var(--text-secondary) !important;
             }
             .stTabs [aria-selected="true"] {
-                color: #58a6ff !important;
-                background: #161b22 !important;
-                border-bottom: 2px solid #58a6ff !important;
+                color: var(--primary) !important;
+                background: rgba(91,122,245,0.08) !important;
+                border-bottom: 2px solid var(--primary) !important;
+            }
+            .stTabs [data-baseweb="tab-panel"] {
+                padding-top: 1rem;
             }
 
-            /* Cards */
+            /* ── CARDS ── */
             .pq-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
                 padding: 0.9rem 1rem;
                 margin-bottom: 0.55rem;
             }
             .pq-card-compound {
-                border-color: #238636;
-                background: linear-gradient(135deg, rgba(35,134,54,0.15) 0%, #161b22 60%);
-                box-shadow: 0 0 20px rgba(63,185,80,0.12);
+                border-color: rgba(16,185,129,0.4);
+                background: linear-gradient(135deg, var(--success-dim) 0%, var(--bg-surface) 60%);
+                box-shadow: 0 0 24px var(--success-glow);
             }
             .pq-card-title {
                 font-size: 0.92rem;
                 font-weight: 700;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 line-height: 1.35;
                 margin: 0 0 0.55rem;
             }
@@ -1264,7 +1415,7 @@ def _inject_global_css() -> None:
                 align-items: center;
             }
 
-            /* Badges */
+            /* ── BADGES ── */
             .pq-badge {
                 display: inline-block;
                 padding: 0.22rem 0.55rem;
@@ -1275,59 +1426,102 @@ def _inject_global_css() -> None:
                 white-space: nowrap;
             }
             .pq-badge-green {
-                background: rgba(63,185,80,0.22);
-                color: #3fb950;
-                border: 1px solid rgba(63,185,80,0.45);
+                background: var(--success-dim);
+                color: var(--success);
+                border: 1px solid rgba(16,185,129,0.4);
             }
             .pq-badge-blue {
-                background: rgba(88,166,255,0.15);
-                color: #58a6ff;
-                border: 1px solid rgba(88,166,255,0.35);
+                background: var(--primary-dim);
+                color: var(--primary);
+                border: 1px solid rgba(91,122,245,0.35);
+            }
+            .pq-badge-cyan {
+                background: var(--cyan-dim);
+                color: var(--cyan);
+                border: 1px solid rgba(6,182,212,0.35);
             }
             .pq-badge-grey {
-                background: #21262d;
-                color: #8b949e;
-                border: 1px solid #30363d;
+                background: var(--bg-elevated);
+                color: var(--text-muted);
+                border: 1px solid var(--border-default);
             }
             .pq-badge-red {
-                background: rgba(248,81,73,0.15);
-                color: #f85149;
-                border: 1px solid rgba(248,81,73,0.35);
+                background: var(--danger-dim);
+                color: var(--danger);
+                border: 1px solid rgba(244,63,94,0.35);
+            }
+            .pq-badge-gold {
+                background: var(--gold-dim);
+                color: var(--gold);
+                border: 1px solid rgba(251,191,36,0.4);
             }
             .pq-stat {
                 font-size: 0.78rem;
-                color: #8b949e;
+                color: var(--text-secondary);
             }
             .pq-stat strong {
-                color: #f0f2f5;
+                color: var(--text-primary);
                 font-weight: 700;
             }
 
-            /* Verdict containers */
+            /* ── TAB SECTION HEADERS ── */
+            .pq-tab-header {
+                margin-bottom: 0.85rem;
+            }
+            .pq-tab-title {
+                font-size: 1.3rem;
+                font-weight: 800;
+                color: var(--text-primary);
+                letter-spacing: -0.02em;
+                margin: 0 0 0.25rem;
+                line-height: 1.2;
+            }
+            .pq-tab-subtitle {
+                font-size: 0.82rem;
+                color: var(--text-secondary);
+                margin: 0;
+                line-height: 1.5;
+            }
+            .pq-tab-subtitle strong {
+                color: var(--text-primary);
+            }
+            .pq-how-to-box {
+                background: linear-gradient(135deg, rgba(91,122,245,0.07) 0%, transparent 100%);
+                border: 1px solid rgba(91,122,245,0.18);
+                border-radius: var(--radius-sm);
+                padding: 0.55rem 0.75rem;
+                margin-top: 0.55rem;
+                font-size: 0.77rem;
+                color: var(--text-secondary);
+                line-height: 1.5;
+            }
+            .pq-how-to-box span { color: #a5b4fc; font-weight: 700; }
+
+            /* ── VERDICT CONTAINERS ── */
             .pq-verdict-play {
-                background: linear-gradient(135deg, rgba(63,185,80,0.25) 0%, rgba(35,134,54,0.12) 100%);
-                border: 2px solid #3fb950;
-                border-radius: 14px;
+                background: linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.08) 100%);
+                border: 2px solid var(--success);
+                border-radius: var(--radius-lg);
                 padding: 1.25rem 1.35rem;
                 margin-top: 1rem;
-                box-shadow: 0 0 28px rgba(63,185,80,0.2);
+                box-shadow: 0 0 32px var(--success-glow);
             }
             .pq-verdict-play h2 {
                 margin: 0 0 0.35rem;
                 font-size: 1.35rem;
                 font-weight: 800;
-                color: #3fb950;
+                color: var(--success);
             }
             .pq-verdict-play p {
                 margin: 0;
                 font-size: 0.95rem;
-                color: #c9d1d9;
+                color: var(--text-secondary);
                 line-height: 1.5;
             }
             .pq-verdict-pass {
-                background: #161b22;
-                border: 1px solid #30363d;
-                border-radius: 14px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-lg);
                 padding: 1.25rem 1.35rem;
                 margin-top: 1rem;
             }
@@ -1335,15 +1529,15 @@ def _inject_global_css() -> None:
                 margin: 0 0 0.35rem;
                 font-size: 1.2rem;
                 font-weight: 800;
-                color: #8b949e;
+                color: var(--text-secondary);
             }
             .pq-verdict-pass p {
                 margin: 0;
                 font-size: 0.88rem;
-                color: #6e7681;
+                color: var(--text-muted);
             }
 
-            /* Arb split */
+            /* ── ARB SPLIT ── */
             .pq-split {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
@@ -1354,367 +1548,532 @@ def _inject_global_css() -> None:
                 .pq-split { grid-template-columns: 1fr; }
             }
             .pq-split-side {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
                 padding: 0.85rem;
                 text-align: center;
             }
             .pq-split-side .venue {
-                font-size: 0.68rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.65rem;
+                font-weight: 800;
+                color: var(--text-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.08em;
                 margin-bottom: 0.35rem;
             }
             .pq-split-side .leg {
                 font-size: 1rem;
                 font-weight: 800;
-                color: #58a6ff;
+                color: var(--primary);
             }
             .pq-arb-banner {
-                background: linear-gradient(90deg, rgba(63,185,80,0.3), rgba(35,134,54,0.15));
-                border: 2px solid #3fb950;
-                border-radius: 12px;
+                background: linear-gradient(90deg, rgba(16,185,129,0.25), rgba(5,150,105,0.1));
+                border: 2px solid var(--success);
+                border-radius: var(--radius-md);
                 padding: 1rem 1.1rem;
                 text-align: center;
                 margin-top: 0.65rem;
             }
             .pq-arb-banner h3 {
                 margin: 0 0 0.25rem;
-                color: #3fb950;
+                color: var(--success);
                 font-size: 1.05rem;
                 font-weight: 800;
             }
             .pq-arb-banner p {
                 margin: 0;
-                color: #c9d1d9;
+                color: var(--text-secondary);
                 font-size: 0.9rem;
             }
 
-            /* Warning banner */
+            /* ── WARNING BANNER ── */
             .pq-trap-banner {
-                background: linear-gradient(135deg, rgba(248,81,73,0.2), rgba(139,69,19,0.1));
-                border: 2px solid #f85149;
-                border-radius: 12px;
+                background: linear-gradient(135deg, var(--danger-dim), rgba(153,27,27,0.08));
+                border: 2px solid var(--danger);
+                border-radius: var(--radius-md);
                 padding: 1.1rem 1.2rem;
                 margin-top: 0.75rem;
             }
             .pq-trap-banner h3 {
                 margin: 0 0 0.4rem;
-                color: #f85149;
+                color: var(--danger);
                 font-size: 1rem;
                 font-weight: 800;
             }
             .pq-trap-banner p {
                 margin: 0;
-                color: #c9d1d9;
+                color: var(--text-secondary);
                 font-size: 0.88rem;
                 line-height: 1.45;
             }
 
-            /* Input card */
+            /* ── INPUT CARD ── */
             .pq-input-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
                 padding: 0.85rem 1rem 0.25rem;
                 margin-bottom: 0.75rem;
             }
 
-            /* Streamlit widgets */
+            /* ── STREAMLIT WIDGETS ── */
             [data-testid="stMetric"] {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 10px;
-                padding: 0.6rem 0.75rem;
+                background: var(--bg-surface) !important;
+                border: 1px solid var(--border-subtle) !important;
+                border-radius: var(--radius-md) !important;
+                padding: 0.75rem 0.9rem !important;
+            }
+            [data-testid="stMetricValue"] {
+                color: var(--text-primary) !important;
+                font-family: 'JetBrains Mono', monospace !important;
+            }
+            [data-testid="stMetricLabel"] {
+                color: var(--text-muted) !important;
+                font-size: 0.72rem !important;
+                font-weight: 700 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.06em !important;
             }
             [data-testid="stDataFrame"] {
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                border: 1px solid var(--border-subtle) !important;
+                border-radius: var(--radius-md) !important;
+            }
+            [data-testid="stMetricContainer"] {
+                background: var(--bg-surface) !important;
+                border: 1px solid var(--border-subtle) !important;
+                border-radius: var(--radius-md) !important;
+                padding: 10px 15px !important;
             }
             .stSlider label, .stNumberInput label, .stSelectbox label {
                 font-weight: 600 !important;
                 font-size: 0.82rem !important;
+                color: var(--text-secondary) !important;
+            }
+            .stTextInput input, .stNumberInput input {
+                background: var(--bg-input) !important;
+                border: 1px solid var(--border-default) !important;
+                border-radius: var(--radius-sm) !important;
+                color: var(--text-primary) !important;
+                font-size: 0.9rem !important;
+            }
+            .stTextInput input:focus, .stNumberInput input:focus {
+                border-color: var(--primary) !important;
+                box-shadow: 0 0 0 2px var(--primary-glow) !important;
+            }
+            .stSelectbox > div > div {
+                background: var(--bg-input) !important;
+                border: 1px solid var(--border-default) !important;
+                border-radius: var(--radius-sm) !important;
+                color: var(--text-primary) !important;
             }
             hr {
-                border-color: #21262d;
+                border-color: var(--border-subtle);
                 margin: 0.75rem 0;
             }
+            div.stExpander {
+                background: var(--bg-surface) !important;
+                border: 1px solid var(--border-subtle) !important;
+                border-radius: var(--radius-md) !important;
+            }
 
-            /* Section labels & picker */
+            /* ── SECTION LABELS & PICKERS ── */
             .pq-section-label {
-                font-size: 0.72rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.68rem;
+                font-weight: 800;
+                color: var(--text-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
-                margin: 0.65rem 0 0.35rem;
+                letter-spacing: 0.1em;
+                margin: 0.85rem 0 0.4rem;
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+            }
+            .pq-section-label::after {
+                content: '';
+                flex: 1;
+                height: 1px;
+                background: var(--border-subtle);
             }
             .pq-pick-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 10px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-sm);
                 padding: 0.55rem 0.75rem;
                 margin-bottom: 0.25rem;
+                transition: border-color 0.15s;
             }
             .pq-pick-selected {
-                border-color: #58a6ff;
-                background: rgba(88,166,255,0.08);
+                border-color: var(--primary);
+                background: var(--primary-dim);
             }
             .pq-pick-title {
                 display: block;
                 font-size: 0.84rem;
                 font-weight: 600;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 line-height: 1.35;
             }
             .pq-pick-meta {
                 display: block;
                 font-size: 0.72rem;
-                color: #58a6ff;
+                color: var(--primary);
                 font-weight: 700;
                 margin-top: 0.15rem;
             }
             .pq-page-indicator {
                 text-align: center;
                 font-size: 0.75rem;
-                color: #8b949e;
+                color: var(--text-muted);
                 margin: 0.35rem 0 0;
             }
             .pq-selected-banner {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 10px;
+                background: var(--primary-dim);
+                border: 1px solid rgba(91,122,245,0.3);
+                border-radius: var(--radius-sm);
                 padding: 0.65rem 0.8rem;
                 font-size: 0.78rem;
-                color: #c9d1d9;
+                color: #a5b4fc;
                 line-height: 1.4;
                 margin: 0.5rem 0 0.75rem;
             }
             .pq-odds-bar {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
                 padding: 0.55rem 0.75rem 0.35rem;
                 margin-bottom: 0.65rem;
             }
 
-            /* Tactile buttons */
+            /* ── BUTTONS ── */
             .stButton > button {
-                border-radius: 10px !important;
+                border-radius: var(--radius-sm) !important;
                 font-weight: 600 !important;
                 min-height: 2.35rem;
+                font-size: 0.84rem !important;
+                transition: all 0.15s !important;
             }
             .stButton > button[kind="secondary"] {
-                background: #21262d !important;
-                border: 1px solid #30363d !important;
-                color: #c9d1d9 !important;
+                background: var(--bg-elevated) !important;
+                border: 1px solid var(--border-default) !important;
+                color: var(--text-secondary) !important;
+            }
+            .stButton > button[kind="secondary"]:hover {
+                border-color: var(--primary) !important;
+                color: var(--text-primary) !important;
             }
             .stButton > button[kind="primary"] {
-                background: #1f6feb !important;
-                border: 1px solid #388bfd !important;
+                background: linear-gradient(135deg, #5b7af5 0%, #4f46e5 100%) !important;
+                border: 1px solid rgba(91,122,245,0.5) !important;
+                color: #fff !important;
+                box-shadow: 0 2px 8px rgba(91,122,245,0.25) !important;
+            }
+            .stButton > button[kind="primary"]:hover {
+                box-shadow: 0 4px 16px rgba(91,122,245,0.4) !important;
+                transform: translateY(-1px) !important;
             }
 
-            /* Segmented control polish */
+            /* ── SEGMENTED CONTROL ── */
             [data-testid="stSegmentedControl"] {
-                background: #0d1117;
-                border-radius: 10px;
+                background: var(--bg-surface);
+                border-radius: var(--radius-sm);
                 padding: 3px;
+                border: 1px solid var(--border-subtle);
             }
 
-            /* Pikkit-style explore feed */
+            /* ── EXPLORE FEED ── */
             .pq-search-hero {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
                 padding: 0.65rem 0.85rem;
                 margin-bottom: 0.55rem;
             }
             .pq-feed-row {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 0.75rem 0.85rem;
-                margin-bottom: 0.45rem;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 0.8rem 0.9rem;
+                margin-bottom: 0.4rem;
+                transition: border-color 0.15s, box-shadow 0.15s;
+            }
+            .pq-feed-row:hover {
+                border-color: var(--border-emphasis);
+                box-shadow: 0 2px 12px rgba(0,0,0,0.3);
             }
             .pq-feed-meta {
                 display: block;
-                font-size: 0.65rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.62rem;
+                font-weight: 800;
+                color: var(--text-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.08em;
                 margin-bottom: 0.25rem;
             }
             .pq-feed-title {
                 display: block;
-                font-size: 0.88rem;
+                font-size: 0.9rem;
                 font-weight: 700;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 line-height: 1.35;
             }
             .pq-feed-event {
                 display: block;
                 font-size: 0.72rem;
-                color: #6e7681;
+                color: var(--text-muted);
                 margin-top: 0.2rem;
             }
             .pq-odd-pill {
                 display: block;
                 text-align: center;
-                padding: 0.55rem 0.35rem;
-                border-radius: 10px;
+                padding: 0.5rem 0.35rem;
+                border-radius: var(--radius-sm);
                 font-weight: 800;
-                font-size: 0.95rem;
+                font-size: 0.9rem;
             }
             .pq-odd-yes {
-                background: #1c2d41;
-                color: #58a6ff;
-                border: 1px solid #30363d;
+                background: rgba(91,122,245,0.12);
+                color: var(--primary);
+                border: 1px solid rgba(91,122,245,0.3);
             }
             .pq-odd-no {
-                background: #1a2332;
-                color: #c9d1d9;
-                border: 1px solid #30363d;
-            }
-            .pq-nav-scroll .stPills {
-                overflow-x: auto;
+                background: var(--bg-elevated);
+                color: var(--text-secondary);
+                border: 1px solid var(--border-default);
             }
 
-            /* Phase 1 — tactile value cards */
+            /* ── VALUE PLAY CARDS ── */
             .pq-value-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 1rem 1.1rem;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-lg);
+                padding: 1.1rem 1.2rem;
                 margin-bottom: 0.65rem;
+                position: relative;
+                overflow: hidden;
+            }
+            .pq-value-card::before {
+                content: '';
+                position: absolute;
+                top: 0; left: 0; right: 0;
+                height: 3px;
+                background: var(--card-accent, var(--success));
             }
             .pq-value-card-hot {
-                border-color: #238636;
-                box-shadow: 0 0 18px rgba(63,185,80,0.15);
+                border-color: rgba(16,185,129,0.35);
+                box-shadow: 0 0 24px rgba(16,185,129,0.1);
+            }
+            .pq-value-card-elite {
+                border: 2px solid var(--success);
+                box-shadow: 0 0 28px rgba(16,185,129,0.2);
+            }
+            .pq-value-card-elite::before {
+                background: linear-gradient(90deg, var(--gold), var(--success));
+                height: 3px;
+            }
+            .pq-rank-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                background: var(--success-dim);
+                color: var(--success);
+                border: 1px solid rgba(16,185,129,0.4);
+                font-weight: 800;
+                font-size: 0.72rem;
+                padding: 0.28rem 0.65rem;
+                border-radius: 999px;
+                margin-bottom: 0.55rem;
+                letter-spacing: 0.03em;
+            }
+            .pq-rank-badge-elite {
+                background: linear-gradient(135deg, var(--gold-dim), var(--success-dim));
+                color: var(--gold);
+                border-color: rgba(251,191,36,0.5);
+                font-size: 0.78rem;
             }
             .pq-event-name {
-                font-size: 0.95rem;
+                font-size: 0.98rem;
                 font-weight: 800;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 margin: 0 0 0.65rem;
-                line-height: 1.35;
+                line-height: 1.4;
             }
             .pq-cta-pill {
                 display: inline-block;
-                background: linear-gradient(90deg, #1f6feb, #388bfd);
+                background: linear-gradient(135deg, var(--primary) 0%, #4338ca 100%);
                 color: #fff;
                 font-weight: 800;
                 font-size: 0.82rem;
-                padding: 0.45rem 0.85rem;
+                padding: 0.45rem 1rem;
                 border-radius: 999px;
-                margin-bottom: 0.55rem;
+                margin-bottom: 0.6rem;
                 letter-spacing: 0.02em;
+                box-shadow: 0 2px 10px rgba(91,122,245,0.3);
             }
             .pq-ev-badge {
                 display: inline-block;
-                background: rgba(63,185,80,0.25);
-                color: #3fb950;
-                border: 1px solid #3fb950;
+                background: var(--success-dim);
+                color: var(--success);
+                border: 1px solid rgba(16,185,129,0.4);
                 font-weight: 800;
                 font-size: 0.8rem;
-                padding: 0.3rem 0.65rem;
-                border-radius: 8px;
+                padding: 0.3rem 0.7rem;
+                border-radius: var(--radius-sm);
             }
             .pq-metric-row {
                 display: flex;
-                gap: 1.25rem;
+                gap: 1rem;
                 flex-wrap: wrap;
                 font-size: 0.78rem;
-                color: #8b949e;
+                color: var(--text-secondary);
             }
-            .pq-metric-row strong { color: #f0f2f5; }
+            .pq-metric-row strong { color: var(--text-primary); }
 
-            /* Full-width audit banner */
+            /* ── PROBABILITY BAR ── */
+            .pq-prob-bar-wrap {
+                margin: 0.55rem 0;
+            }
+            .pq-prob-bar-label {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.68rem;
+                font-weight: 700;
+                color: var(--text-muted);
+                margin-bottom: 0.2rem;
+            }
+            .pq-prob-bar-track {
+                height: 6px;
+                background: var(--bg-elevated);
+                border-radius: 99px;
+                overflow: hidden;
+            }
+            .pq-prob-bar-fill {
+                height: 100%;
+                border-radius: 99px;
+                background: var(--bar-color, var(--primary));
+                transition: width 0.5s ease;
+            }
+
+            /* ── AUDIT BANNERS ── */
             .pq-banner-play {
-                background: linear-gradient(90deg, rgba(63,185,80,0.35), rgba(35,134,54,0.15));
-                border: 2px solid #3fb950;
-                border-radius: 12px;
+                background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.1));
+                border: 2px solid var(--success);
+                border-radius: var(--radius-md);
                 padding: 1.4rem;
                 text-align: center;
-                font-size: 1.45rem;
+                font-size: 1.4rem;
                 font-weight: 900;
-                color: #3fb950;
+                color: var(--success);
                 margin-top: 1rem;
-                letter-spacing: 0.04em;
+                letter-spacing: 0.03em;
+                box-shadow: 0 0 32px rgba(16,185,129,0.15);
             }
             .pq-banner-pass {
-                background: rgba(88,28,28,0.35);
-                border: 2px solid #6e3630;
-                border-radius: 12px;
+                background: var(--danger-dim);
+                border: 2px solid rgba(244,63,94,0.4);
+                border-radius: var(--radius-md);
                 padding: 1.4rem;
                 text-align: center;
-                font-size: 1.35rem;
+                font-size: 1.3rem;
                 font-weight: 900;
-                color: #8b949e;
+                color: var(--text-muted);
                 margin-top: 1rem;
             }
 
-            /* Hype vs Reality */
+            /* ── HYPE VS REALITY ── */
             .pq-hype-col {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 12px;
-                padding: 1rem;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 1.1rem;
                 text-align: center;
             }
             .pq-hype-val {
-                font-size: 2rem;
+                font-size: 2.5rem;
                 font-weight: 900;
-                color: #f0f2f5;
+                color: var(--text-primary);
+                font-family: 'JetBrains Mono', monospace;
+                line-height: 1;
+                margin: 0.25rem 0;
+            }
+            .pq-hype-label {
+                font-size: 0.68rem;
+                font-weight: 700;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
             }
             .pq-bubble-badge {
-                background: linear-gradient(90deg, rgba(255,140,0,0.35), rgba(255,69,0,0.2));
-                border: 2px solid #ff8c00;
-                color: #ffb347;
-                font-weight: 900;
-                font-size: 0.95rem;
-                padding: 1rem 1.1rem;
-                border-radius: 12px;
+                background: linear-gradient(135deg, rgba(245,158,11,0.25), rgba(239,68,68,0.12));
+                border: 2px solid var(--warning);
+                color: var(--warning);
+                font-weight: 800;
+                font-size: 1rem;
+                padding: 1rem 1.2rem;
+                border-radius: var(--radius-md);
                 text-align: center;
+                margin-top: 1rem;
+                box-shadow: 0 0 24px rgba(245,158,11,0.15);
+            }
+            .pq-sentiment-card {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-lg);
+                padding: 1.25rem;
                 margin-top: 0.85rem;
-                box-shadow: 0 0 20px rgba(255,140,0,0.2);
+            }
+            .pq-sentiment-delta {
+                text-align: center;
+                font-size: 3rem;
+                font-weight: 900;
+                line-height: 1;
+                margin: 0.5rem 0 0.25rem;
+                font-family: 'JetBrains Mono', monospace;
+            }
+            .pq-sentiment-delta.positive { color: var(--warning); }
+            .pq-sentiment-delta.negative { color: var(--cyan); }
+            .pq-sentiment-delta.neutral { color: var(--text-muted); }
+            .pq-sentiment-verdict {
+                text-align: center;
+                font-size: 0.88rem;
+                font-weight: 600;
+                color: var(--text-secondary);
+                margin: 0;
             }
 
-            /* Arb recipe */
+            /* ── ARB RECIPE ── */
             .pq-recipe {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-lg);
                 padding: 1rem 1.15rem;
                 margin: 0.5rem 0;
             }
             .pq-recipe-step {
                 font-size: 0.92rem;
-                color: #c9d1d9;
+                color: var(--text-secondary);
                 margin: 0.45rem 0;
                 line-height: 1.5;
             }
-            .pq-recipe-step strong { color: #58a6ff; }
+            .pq-recipe-step strong { color: var(--primary); }
             .pq-lock-banner {
-                background: linear-gradient(90deg, rgba(63,185,80,0.3), rgba(35,134,54,0.12));
-                border: 2px solid #3fb950;
-                border-radius: 12px;
+                background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.08));
+                border: 2px solid var(--success);
+                border-radius: var(--radius-md);
                 padding: 1rem;
                 text-align: center;
                 font-size: 1.1rem;
                 font-weight: 800;
-                color: #3fb950;
+                color: var(--success);
                 margin-top: 0.75rem;
+                box-shadow: 0 0 20px rgba(16,185,129,0.12);
             }
 
-            /* Cross-book arb comparison */
+            /* ── CROSS-BOOK COMPARISON ── */
             .pq-arb-compare {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-lg);
                 padding: 1rem 1.1rem;
                 margin: 0.75rem 0 1rem;
             }
@@ -1727,23 +2086,34 @@ def _inject_global_css() -> None:
                 .pq-arb-grid { grid-template-columns: 1fr; }
             }
             .pq-book-card {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.85rem;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                padding: 0.9rem;
             }
             .pq-book-header {
-                font-size: 0.68rem;
+                font-size: 0.65rem;
                 font-weight: 800;
-                color: #8b949e;
+                color: var(--text-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
-                margin-bottom: 0.35rem;
+                letter-spacing: 0.1em;
+                margin-bottom: 0.4rem;
+                display: flex;
+                align-items: center;
+                gap: 0.35rem;
+            }
+            .pq-book-badge {
+                background: var(--primary-dim);
+                color: var(--primary);
+                border-radius: 4px;
+                padding: 0.1rem 0.3rem;
+                font-size: 0.6rem;
+                font-weight: 700;
             }
             .pq-book-title {
                 font-size: 0.82rem;
                 font-weight: 700;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 line-height: 1.35;
                 margin-bottom: 0.65rem;
                 min-height: 2.2rem;
@@ -1753,36 +2123,39 @@ def _inject_global_css() -> None:
                 justify-content: space-between;
                 align-items: center;
                 padding: 0.45rem 0.55rem;
-                border-radius: 8px;
+                border-radius: var(--radius-sm);
                 margin-bottom: 0.35rem;
                 font-size: 0.8rem;
                 font-weight: 700;
             }
             .pq-odd-row.yes {
-                background: rgba(88,166,255,0.12);
-                border: 1px solid rgba(88,166,255,0.35);
-                color: #58a6ff;
+                background: var(--primary-dim);
+                border: 1px solid rgba(91,122,245,0.3);
+                color: var(--primary);
             }
             .pq-odd-row.no {
-                background: #21262d;
-                border: 1px solid #30363d;
-                color: #c9d1d9;
+                background: var(--bg-base);
+                border: 1px solid var(--border-subtle);
+                color: var(--text-secondary);
             }
             .pq-odd-row .pq-odd-val {
                 font-weight: 800;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 font-size: 0.78rem;
+                font-family: 'JetBrains Mono', monospace;
             }
+
+            /* ── STRATEGY CARDS ── */
             .pq-strategy-card {
-                background: #161b22;
-                border: 1px solid #21262d;
-                border-radius: 14px;
-                padding: 1rem 1.1rem;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-lg);
+                padding: 1.1rem 1.15rem;
                 margin: 0.65rem 0;
             }
             .pq-strategy-card.pq-strategy-live {
-                border-color: #3fb950;
-                box-shadow: 0 0 20px rgba(63,185,80,0.15);
+                border-color: rgba(16,185,129,0.45);
+                box-shadow: 0 0 24px rgba(16,185,129,0.12);
             }
             .pq-strategy-head {
                 display: flex;
@@ -1795,74 +2168,77 @@ def _inject_global_css() -> None:
             .pq-strategy-title {
                 font-size: 0.95rem;
                 font-weight: 800;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 margin: 0;
             }
             .pq-strategy-badge {
-                font-size: 0.68rem;
+                font-size: 0.67rem;
                 font-weight: 800;
-                padding: 0.25rem 0.55rem;
+                padding: 0.25rem 0.6rem;
                 border-radius: 999px;
                 text-transform: uppercase;
                 letter-spacing: 0.04em;
             }
             .pq-strategy-badge.live {
-                background: rgba(63,185,80,0.22);
-                color: #3fb950;
-                border: 1px solid #3fb950;
+                background: var(--success-dim);
+                color: var(--success);
+                border: 1px solid rgba(16,185,129,0.4);
             }
             .pq-strategy-badge.dead {
-                background: #21262d;
-                color: #8b949e;
-                border: 1px solid #30363d;
+                background: var(--bg-elevated);
+                color: var(--text-muted);
+                border: 1px solid var(--border-default);
             }
             .pq-strategy-metrics {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
-                gap: 0.45rem;
+                gap: 0.5rem;
                 margin-top: 0.65rem;
             }
             @media (max-width: 480px) {
                 .pq-strategy-metrics { grid-template-columns: 1fr; }
             }
             .pq-metric-box {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 10px;
-                padding: 0.55rem 0.65rem;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-sm);
+                padding: 0.6rem 0.7rem;
                 text-align: center;
             }
             .pq-metric-box .lbl {
                 display: block;
-                font-size: 0.62rem;
-                font-weight: 700;
-                color: #8b949e;
+                font-size: 0.6rem;
+                font-weight: 800;
+                color: var(--text-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.06em;
             }
             .pq-metric-box .val {
                 display: block;
-                font-size: 0.95rem;
+                font-size: 1rem;
                 font-weight: 800;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 margin-top: 0.15rem;
+                font-family: 'JetBrains Mono', monospace;
             }
-            .pq-metric-box .val.green { color: #3fb950; }
-            .pq-metric-box .val.red { color: #f85149; }
+            .pq-metric-box .val.green { color: var(--success); }
+            .pq-metric-box .val.red { color: var(--danger); }
+
+            /* ── ARB DETAIL PANEL ── */
             .pq-arb-detail {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.8rem;
-                margin-top: 0.7rem;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                padding: 0.85rem;
+                margin-top: 0.75rem;
             }
             .pq-arb-detail-title {
                 margin: 0 0 0.5rem;
-                color: #f0f2f5;
-                font-size: 0.78rem;
+                color: var(--text-secondary);
+                font-size: 0.72rem;
                 font-weight: 800;
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.08em;
             }
             .pq-arb-ticket-row {
                 display: grid;
@@ -1870,119 +2246,123 @@ def _inject_global_css() -> None:
                 gap: 0.45rem;
                 align-items: center;
                 padding: 0.5rem 0;
-                border-top: 1px solid #21262d;
+                border-top: 1px solid var(--border-subtle);
                 font-size: 0.78rem;
-                color: #c9d1d9;
+                color: var(--text-secondary);
             }
             .pq-arb-ticket-row.header {
                 border-top: 0;
                 padding-top: 0;
-                color: #8b949e;
-                font-size: 0.66rem;
+                color: var(--text-muted);
+                font-size: 0.63rem;
                 font-weight: 800;
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.06em;
             }
             .pq-arb-ticket-row strong {
-                color: #f0f2f5;
+                color: var(--text-primary);
                 font-weight: 800;
             }
             .pq-arb-ticket-row .cash {
-                color: #58a6ff;
+                color: var(--primary);
                 font-weight: 800;
                 text-align: right;
+                font-family: 'JetBrains Mono', monospace;
             }
             .pq-arb-explain {
                 margin: 0.65rem 0 0;
-                color: #c9d1d9;
+                color: var(--text-secondary);
                 font-size: 0.82rem;
-                line-height: 1.48;
+                line-height: 1.5;
             }
-            .pq-arb-explain strong { color: #f0f2f5; }
+            .pq-arb-explain strong { color: var(--text-primary); }
             .pq-arb-warning {
-                background: rgba(248,81,73,0.12);
-                border: 1px solid rgba(248,81,73,0.45);
-                border-radius: 10px;
-                color: #ffb3ad;
+                background: var(--danger-dim);
+                border: 1px solid rgba(244,63,94,0.35);
+                border-radius: var(--radius-sm);
+                color: #fda4af;
                 font-size: 0.8rem;
                 line-height: 1.45;
                 margin-top: 0.7rem;
-                padding: 0.7rem 0.75rem;
+                padding: 0.7rem 0.8rem;
             }
+
+            /* ── ARB SPOTLIGHT ── */
             .pq-arb-spotlight {
-                background: linear-gradient(180deg, rgba(88,166,255,0.18), rgba(13,17,23,0.96));
-                border: 2px solid #58a6ff;
-                border-radius: 16px;
-                box-shadow: 0 0 26px rgba(88,166,255,0.18);
+                background: linear-gradient(180deg, rgba(91,122,245,0.14), rgba(6,10,20,0.95));
+                border: 2px solid var(--primary);
+                border-radius: var(--radius-xl);
+                box-shadow: 0 0 32px var(--primary-glow);
                 margin: 0.75rem 0 1rem;
-                padding: 1rem;
+                padding: 1.1rem 1.2rem;
             }
             .pq-arb-spotlight.live {
-                background: linear-gradient(180deg, rgba(63,185,80,0.22), rgba(13,17,23,0.96));
-                border-color: #3fb950;
-                box-shadow: 0 0 28px rgba(63,185,80,0.22);
+                background: linear-gradient(180deg, rgba(16,185,129,0.18), rgba(6,10,20,0.95));
+                border-color: var(--success);
+                box-shadow: 0 0 32px var(--success-glow);
             }
             .pq-arb-spotlight.dead {
-                background: linear-gradient(180deg, rgba(248,81,73,0.16), rgba(13,17,23,0.96));
-                border-color: #f85149;
-                box-shadow: 0 0 24px rgba(248,81,73,0.15);
+                background: linear-gradient(180deg, rgba(244,63,94,0.12), rgba(6,10,20,0.95));
+                border-color: rgba(244,63,94,0.5);
+                box-shadow: 0 0 24px var(--danger-glow);
             }
             .pq-arb-spotlight-kicker {
-                color: #8b949e;
-                font-size: 0.68rem;
+                color: var(--text-muted);
+                font-size: 0.65rem;
                 font-weight: 900;
-                letter-spacing: 0.08em;
-                margin: 0 0 0.25rem;
+                letter-spacing: 0.1em;
+                margin: 0 0 0.3rem;
                 text-transform: uppercase;
             }
             .pq-arb-spotlight-title {
-                color: #f0f2f5;
-                font-size: 1.1rem;
+                color: var(--text-primary);
+                font-size: 1.15rem;
                 font-weight: 900;
                 letter-spacing: -0.02em;
                 line-height: 1.2;
-                margin: 0 0 0.7rem;
+                margin: 0 0 0.75rem;
             }
             .pq-arb-action-list {
                 display: grid;
                 gap: 0.5rem;
-                margin: 0.7rem 0;
+                margin: 0.75rem 0;
             }
             .pq-arb-action {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.75rem;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                padding: 0.8rem;
             }
             .pq-arb-action .step {
-                color: #8b949e;
+                color: var(--text-muted);
                 display: block;
-                font-size: 0.66rem;
+                font-size: 0.63rem;
                 font-weight: 900;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.08em;
                 text-transform: uppercase;
             }
             .pq-arb-action .take {
-                color: #f0f2f5;
+                color: var(--text-primary);
                 display: block;
-                font-size: 0.94rem;
+                font-size: 0.96rem;
                 font-weight: 900;
                 margin-top: 0.15rem;
             }
             .pq-arb-action .meta {
-                color: #58a6ff;
+                color: var(--primary);
                 display: block;
                 font-size: 0.78rem;
                 font-weight: 700;
                 margin-top: 0.2rem;
+                font-family: 'JetBrains Mono', monospace;
             }
             .pq-arb-spotlight-note {
-                color: #c9d1d9;
+                color: var(--text-secondary);
                 font-size: 0.82rem;
                 line-height: 1.5;
                 margin: 0.65rem 0 0;
             }
-            .pq-arb-spotlight-note strong { color: #f0f2f5; }
+            .pq-arb-spotlight-note strong { color: var(--text-primary); }
             @media (max-width: 480px) {
                 .pq-arb-ticket-row {
                     grid-template-columns: 1fr 0.62fr;
@@ -1992,21 +2372,21 @@ def _inject_global_css() -> None:
                 .pq-arb-ticket-row .cash { text-align: left; }
             }
 
-            /* Kalshi auto-suggest */
+            /* ── KALSHI SUGGEST ── */
             .pq-suggest-card {
-                background: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 12px;
-                padding: 0.7rem 0.85rem;
-                margin-bottom: 0.35rem;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border-default);
+                border-radius: var(--radius-md);
+                padding: 0.75rem 0.9rem;
+                margin-bottom: 0.4rem;
             }
             .pq-suggest-score {
                 display: inline-block;
-                font-size: 0.65rem;
+                font-size: 0.63rem;
                 font-weight: 800;
-                color: #58a6ff;
-                background: rgba(88,166,255,0.12);
-                border: 1px solid rgba(88,166,255,0.35);
+                color: var(--primary);
+                background: var(--primary-dim);
+                border: 1px solid rgba(91,122,245,0.3);
                 border-radius: 999px;
                 padding: 0.15rem 0.45rem;
                 margin-bottom: 0.35rem;
@@ -2015,74 +2395,78 @@ def _inject_global_css() -> None:
                 display: block;
                 font-size: 0.84rem;
                 font-weight: 700;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 line-height: 1.35;
             }
             .pq-suggest-meta {
                 display: block;
                 font-size: 0.72rem;
-                color: #58a6ff;
+                color: var(--primary);
                 font-weight: 600;
                 margin-top: 0.2rem;
             }
             .pq-build-tag {
-                color: #58a6ff;
+                color: var(--primary);
                 font-weight: 700;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.9em;
             }
 
-            /* Pikkit-style performance calendar */
+            /* ── PERFORMANCE CALENDAR ── */
             .pq-perf-calendar {
-                background: #0E121A;
-                border: 1px solid #1F2937;
-                border-radius: 10px;
-                padding: 0.85rem 0.95rem 1rem;
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 1rem 1.05rem 1.1rem;
                 margin: 0.65rem 0 1rem;
             }
             .pq-perf-cal-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: baseline;
-                margin-bottom: 0.65rem;
+                margin-bottom: 0.75rem;
                 flex-wrap: wrap;
                 gap: 0.35rem;
             }
             .pq-perf-cal-title {
-                font-size: 0.95rem;
+                font-size: 1rem;
                 font-weight: 800;
-                color: #f0f2f5;
+                color: var(--text-primary);
                 letter-spacing: -0.02em;
             }
             .pq-perf-cal-sub {
-                font-size: 0.72rem;
+                font-size: 0.7rem;
                 font-weight: 600;
-                color: #8b949e;
+                color: var(--text-muted);
+                margin-top: 0.1rem;
             }
             .pq-perf-cal-month-pnl {
-                font-size: 0.82rem;
+                font-size: 0.9rem;
                 font-weight: 800;
+                font-family: 'JetBrains Mono', monospace;
             }
-            .pq-perf-cal-month-pnl.pos { color: #3fb950; }
-            .pq-perf-cal-month-pnl.neg { color: #f85149; }
-            .pq-perf-cal-month-pnl.flat { color: #8b949e; }
+            .pq-perf-cal-month-pnl.pos { color: var(--success); }
+            .pq-perf-cal-month-pnl.neg { color: var(--danger); }
+            .pq-perf-cal-month-pnl.flat { color: var(--text-muted); }
             .pq-perf-cal-grid {
                 display: grid;
                 grid-template-columns: repeat(7, minmax(0, 1fr));
-                gap: 6px;
+                gap: 5px;
             }
             .pq-perf-cal-head {
                 text-align: center;
-                font-size: 0.62rem;
+                font-size: 0.6rem;
                 font-weight: 800;
-                color: #6e7681;
+                color: var(--text-muted);
                 text-transform: uppercase;
-                letter-spacing: 0.06em;
-                padding: 0.2rem 0 0.35rem;
+                letter-spacing: 0.07em;
+                padding: 0.2rem 0 0.4rem;
             }
             .pq-perf-cal-cell {
-                min-height: 58px;
-                border-radius: 8px;
-                border: 1px solid #1F2937;
-                background: #0A0C10;
+                min-height: 62px;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border-subtle);
+                background: var(--bg-elevated);
                 padding: 0.35rem 0.3rem 0.3rem;
                 display: flex;
                 flex-direction: column;
@@ -2096,66 +2480,64 @@ def _inject_global_css() -> None:
                 padding: 0;
             }
             .pq-perf-cal-cell.pq-perf-today {
-                box-shadow: 0 0 0 2px #58a6ff;
+                box-shadow: 0 0 0 2px var(--primary);
+                border-color: var(--primary);
             }
             .pq-perf-cal-cell.pq-perf-win {
-                background: rgba(63,185,80,0.18);
-                border-color: rgba(63,185,80,0.45);
+                background: rgba(16,185,129,0.15);
+                border-color: rgba(16,185,129,0.4);
             }
             .pq-perf-cal-cell.pq-perf-loss {
-                background: rgba(248,81,73,0.14);
-                border-color: rgba(248,81,73,0.4);
+                background: rgba(244,63,94,0.12);
+                border-color: rgba(244,63,94,0.35);
             }
             .pq-perf-cal-cell.pq-perf-flat {
-                background: #161b22;
-                border-color: #30363d;
+                background: var(--bg-surface);
+                border-color: var(--border-default);
             }
             .pq-perf-cal-day {
-                font-size: 0.62rem;
+                font-size: 0.6rem;
                 font-weight: 700;
-                color: #8b949e;
+                color: var(--text-muted);
                 line-height: 1;
             }
             .pq-perf-cal-pnl {
-                font-size: 0.72rem;
+                font-size: 0.7rem;
                 font-weight: 800;
                 text-align: center;
                 line-height: 1.1;
                 margin-top: 0.15rem;
+                font-family: 'JetBrains Mono', monospace;
             }
-            .pq-perf-cal-pnl.pos { color: #3fb950; }
-            .pq-perf-cal-pnl.neg { color: #f85149; }
-            .pq-perf-cal-pnl.flat { color: #c9d1d9; }
+            .pq-perf-cal-pnl.pos { color: var(--success); }
+            .pq-perf-cal-pnl.neg { color: var(--danger); }
+            .pq-perf-cal-pnl.flat { color: var(--text-secondary); }
             .pq-perf-cal-count {
-                font-size: 0.58rem;
+                font-size: 0.56rem;
                 font-weight: 600;
-                color: #6e7681;
+                color: var(--text-muted);
                 text-align: center;
                 margin-top: 0.1rem;
             }
 
-            /* Ledger calendar flexbox (legacy) */
+            /* ── LEGACY CALENDAR (flexbox) ── */
             .pq-calendar-wrap { margin: 0.75rem 0 1rem; }
-            .pq-cal-grid {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 4px;
-            }
+            .pq-cal-grid { display: flex; flex-wrap: wrap; gap: 4px; }
             .pq-cal-head {
                 flex: 1 0 calc(14.28% - 4px);
                 min-width: 0;
                 text-align: center;
                 font-size: 0.65rem;
                 font-weight: 700;
-                color: #8b949e;
+                color: var(--text-muted);
                 padding: 0.25rem 0;
             }
             .pq-cal-cell {
                 flex: 1 0 calc(14.28% - 4px);
                 min-width: 0;
                 aspect-ratio: 1;
-                border-radius: 8px;
-                border: 1px solid #21262d;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border-subtle);
                 position: relative;
                 display: flex;
                 align-items: center;
@@ -2163,63 +2545,88 @@ def _inject_global_css() -> None:
             }
             .pq-cal-day {
                 position: absolute;
-                top: 4px;
-                left: 6px;
+                top: 4px; left: 6px;
                 font-size: 0.62rem;
-                color: #8b949e;
+                color: var(--text-muted);
                 font-weight: 600;
             }
-            .pq-cal-neutral { background: #161b22; }
-            .pq-cal-win { background: rgba(63,185,80,0.22); border-color: rgba(63,185,80,0.4); }
-            .pq-cal-loss { background: rgba(248,81,73,0.18); border-color: rgba(248,81,73,0.35); }
-            .pq-cal-pnl { font-size: 0.72rem; font-weight: 800; }
-            .pq-cal-pnl.pos { color: #3fb950; }
-            .pq-cal-pnl.neg { color: #f85149; }
-            .pq-cal-dash { color: #484f58; font-size: 0.85rem; }
+            .pq-cal-neutral { background: var(--bg-surface); }
+            .pq-cal-win { background: rgba(16,185,129,0.18); border-color: rgba(16,185,129,0.4); }
+            .pq-cal-loss { background: rgba(244,63,94,0.14); border-color: rgba(244,63,94,0.35); }
+            .pq-cal-pnl { font-size: 0.72rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+            .pq-cal-pnl.pos { color: var(--success); }
+            .pq-cal-pnl.neg { color: var(--danger); }
+            .pq-cal-dash { color: var(--border-emphasis); font-size: 0.85rem; }
 
-
-            /* Elite value plays (SOP) */
-            .pq-value-card-elite {
-                border: 2px solid #3fb950;
-                box-shadow: 0 0 22px rgba(63,185,80,0.28);
-            }
-            .pq-rank-badge {
-                display: inline-block; background: rgba(63,185,80,0.2);
-                color: #3fb950; border: 1px solid #3fb950;
-                font-weight: 800; font-size: 0.72rem;
-                padding: 0.28rem 0.6rem; border-radius: 999px;
-                margin-bottom: 0.5rem; letter-spacing: 0.03em;
-            }
-            .pq-rank-badge-elite {
-                background: rgba(63,185,80,0.35); font-size: 0.78rem;
-            }
-
-            /* Compact explore feed — single row on mobile */
+            /* ── FEED COMPACT ── */
             .pq-feed-compact {
                 display: flex; align-items: center; justify-content: space-between;
                 gap: 0.65rem; flex-wrap: wrap;
             }
             .pq-feed-body { flex: 1 1 200px; min-width: 0; }
-            .pq-feed-odds {
-                display: flex; gap: 0.35rem; flex-shrink: 0;
-            }
+            .pq-feed-odds { display: flex; gap: 0.35rem; flex-shrink: 0; }
             .pq-odd-pill.sm {
                 padding: 0.35rem 0.5rem; font-size: 0.78rem;
-                border-radius: 8px; white-space: nowrap;
+                border-radius: var(--radius-sm); white-space: nowrap;
             }
 
-            /* Scrollable tabs on mobile */
-            .stTabs [data-baseweb="tab-list"] {
-                flex-wrap: nowrap !important;
-                overflow-x: auto !important;
-                -webkit-overflow-scrolling: touch;
+            /* ── KPI ROW ── */
+            .pq-kpi-row {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.65rem;
+                margin-bottom: 1rem;
             }
-            .stTabs [data-baseweb="tab"] {
-                white-space: nowrap !important;
-                flex-shrink: 0 !important;
+            @media (max-width: 640px) {
+                .pq-kpi-row { grid-template-columns: 1fr; }
+            }
+            .pq-kpi-card {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-subtle);
+                border-radius: var(--radius-md);
+                padding: 0.8rem 1rem;
+                text-align: center;
+            }
+            .pq-kpi-label {
+                font-size: 0.65rem;
+                font-weight: 800;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin-bottom: 0.35rem;
+            }
+            .pq-kpi-value {
+                font-size: 1.6rem;
+                font-weight: 900;
+                font-family: 'JetBrains Mono', monospace;
+                line-height: 1.05;
+            }
+            .pq-kpi-value.profit { color: var(--success); }
+            .pq-kpi-value.loss { color: var(--danger); }
+            .pq-kpi-value.neutral { color: var(--text-primary); }
+
+            /* ── DEPLOY STRIP ── */
+            .pq-deploy-strip {
+                background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.05));
+                border: 1px solid rgba(16,185,129,0.2);
+                border-radius: var(--radius-sm);
+                padding: 0.35rem 0.7rem;
+                margin-bottom: 0.5rem;
+                font-size: 0.72rem;
+                color: var(--text-muted);
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .pq-deploy-live {
+                color: var(--success);
+                font-weight: 800;
+                letter-spacing: 0.04em;
+                font-size: 0.68rem;
+                text-transform: uppercase;
             }
 
-            .block-container { max-width: 1100px; padding-bottom: 2rem; }
+            .block-container { max-width: 1200px; padding-bottom: 2.5rem; }
 
         </style>
         """,
@@ -2233,20 +2640,49 @@ def _render_value_play_card(row: pd.Series, rank: int) -> None:
     model_win = float(row["Model Win %"])
     net_edge = float(row["Net EV Edge %"])
     implied_pct = no_p * 100.0
+    edge_gap = model_win - implied_pct
     card_cls = "pq-value-card pq-value-card-elite" if rank == 1 else "pq-value-card pq-value-card-hot"
     rank_cls = "pq-rank-badge pq-rank-badge-elite" if rank == 1 else "pq-rank-badge"
-    rank_label = "Best Play #1" if rank == 1 else f"Edge #{rank}"
+    rank_icon = "🥇" if rank == 1 else f"#{rank}"
+    rank_label = f"{rank_icon} Best Play" if rank == 1 else f"{rank_icon} Edge Play"
     event = html.escape(str(row["Question"]))
+    vol_raw = _coerce_float(row.get("Volume")) or 0.0
+    vol_fmt = f"${vol_raw/1000:.0f}K" if vol_raw >= 1000 else f"${vol_raw:.0f}"
+    model_bar_w = int(model_win)
+    implied_bar_w = int(implied_pct)
     st.markdown(
         f"""
         <div class="{card_cls}">
-            <span class="{rank_cls}">{rank_label}</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.55rem;">
+                <span class="{rank_cls}">{rank_label}</span>
+                <span class="pq-ev-badge">+{net_edge:.1f}% NET EV</span>
+            </div>
             <p class="pq-event-name">{event}</p>
-            <div class="pq-cta-pill">BET NO AT ${no_p:.2f}</div>
-            <div class="pq-metric-row">
-                <span class="pq-ev-badge">+{net_edge:.2f}% NET EV</span>
-                <span>True Prob <strong>{model_win:.1f}%</strong></span>
-                <span>Market Implied <strong>{implied_pct:.1f}%</strong></span>
+            <div style="margin-bottom:0.65rem;">
+                <div class="pq-cta-pill">BET NO @ {implied_pct:.0f}¢</div>
+            </div>
+            <div class="pq-prob-bar-wrap">
+                <div class="pq-prob-bar-label">
+                    <span>True Win Probability</span>
+                    <span style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;">{model_win:.1f}%</span>
+                </div>
+                <div class="pq-prob-bar-track">
+                    <div class="pq-prob-bar-fill" style="width:{model_bar_w}%;--bar-color:#10b981;"></div>
+                </div>
+            </div>
+            <div class="pq-prob-bar-wrap">
+                <div class="pq-prob-bar-label">
+                    <span>Market Implied</span>
+                    <span style="color:#8896b8;font-family:'JetBrains Mono',monospace;">{implied_pct:.1f}%</span>
+                </div>
+                <div class="pq-prob-bar-track">
+                    <div class="pq-prob-bar-fill" style="width:{implied_bar_w}%;--bar-color:#5b7af5;"></div>
+                </div>
+            </div>
+            <div class="pq-metric-row" style="margin-top:0.55rem;">
+                <span>Edge gap <strong style="color:#10b981;">+{edge_gap:.1f}%</strong></span>
+                <span>Volume <strong>{vol_fmt}</strong></span>
+                <span>No cost <strong style="font-family:'JetBrains Mono',monospace;">{implied_pct:.1f}¢</strong></span>
             </div>
         </div>
         """,
@@ -2334,10 +2770,22 @@ def _render_value_plays_dataframe(df: pd.DataFrame) -> None:
 
 
 def render_top_value_plays() -> None:
-    st.markdown("### 🔥 Top Value Plays")
-    st.caption(
-        f"Elite tier — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% · "
-        f"top {VALUE_PLAYS_MAX} sharpest edges"
+    st.markdown(
+        """
+        <div class="pq-tab-header">
+            <h2 class="pq-tab-title">🔥 Top Value Plays</h2>
+            <p class="pq-tab-subtitle">
+                Mathematically profitable NO-side bets on Polymarket, filtered by our quant engine.<br>
+                <strong>Only shows plays with &gt;75% true win probability and ≥5% net EV edge after fees.</strong>
+            </p>
+            <div class="pq-how-to-box">
+                <span>How to use:</span> Each card shows a market where the true probability exceeds
+                what the market is pricing in. The edge gap is your advantage — the wider, the better.
+                Buy NO at the listed price on Polymarket to capture the edge.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     if st.button("↻ Refresh markets", key="refresh_poly"):
@@ -2362,10 +2810,12 @@ def render_top_value_plays() -> None:
     if df.empty:
         st.markdown(
             """
-            <div class="pq-value-card" style="text-align:center;padding:2rem 1.25rem;">
-                <p class="pq-event-name" style="margin-bottom:0.5rem;">No action today</p>
-                <p style="color:#8b949e;font-size:0.95rem;line-height:1.5;margin:0;">
-                    No mathematically viable anomalies detected. Maintain bankroll discipline.
+            <div class="pq-value-card" style="text-align:center;padding:2.5rem 1.5rem;">
+                <div style="font-size:2.5rem;margin-bottom:0.75rem;">📊</div>
+                <p class="pq-event-name" style="margin-bottom:0.5rem;">No qualifying edges right now</p>
+                <p style="color:#8896b8;font-size:0.88rem;line-height:1.6;margin:0;max-width:380px;margin:0 auto;">
+                    No markets currently clear all thresholds. Markets refresh every 60s — check back soon
+                    or adjust your search filters.
                 </p>
             </div>
             """,
@@ -2373,7 +2823,11 @@ def render_top_value_plays() -> None:
         )
         return
 
-    st.caption(f"{len(df)} elite anomal{'y' if len(df) == 1 else 'ies'} on slate")
+    n = len(df)
+    st.markdown(
+        f'<p class="pq-section-label">{n} elite edge{"s" if n != 1 else ""} on slate</p>',
+        unsafe_allow_html=True,
+    )
     _render_value_plays_dataframe(df)
 
 
@@ -2431,25 +2885,83 @@ def _render_audit_results(
     prob_ok = true_win_prob >= WIN_PROB_THRESHOLD
     ev_ok = ev_yield_pct >= EV_THRESHOLD
     edge_display = f"+{ev_yield_pct:.2f}%" if ev_yield_pct >= 0 else f"{ev_yield_pct:.2f}%"
+    edge_color = "#10b981" if ev_yield_pct >= 5.0 else "#f59e0b" if ev_yield_pct > 0 else "#f43f5e"
+    ev_bar_w = max(0, min(100, abs(ev_yield_pct) * 5))
+    ev_bar_color = "#10b981" if ev_yield_pct >= 0 else "#f43f5e"
+    prob_bar_w = int(true_win_prob)
+    market_implied = share_price
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("📊 True Probability", f"{true_win_prob:.1f}%")
-    m2.metric("⚡ Quantitative Edge", edge_display)
-    m3.metric("💰 Recommended Allocation", f"{kelly_pct:.1f}% units")
+    m1.metric("True Win Probability", f"{true_win_prob:.1f}%",
+              delta=f"{true_win_prob - market_implied:+.1f}% vs market")
+    m2.metric("Quantitative Edge", edge_display)
+    m3.metric("Kelly Allocation", f"{kelly_pct:.1f}% of bankroll")
+
+    st.markdown(
+        f"""
+        <div class="pq-card" style="margin-top:0.75rem;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <div>
+                    <div class="pq-prob-bar-wrap">
+                        <div class="pq-prob-bar-label">
+                            <span>Your True Probability</span>
+                            <span style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;font-weight:800;">{true_win_prob:.1f}%</span>
+                        </div>
+                        <div class="pq-prob-bar-track" style="height:10px;">
+                            <div class="pq-prob-bar-fill" style="width:{prob_bar_w}%;--bar-color:#10b981;"></div>
+                        </div>
+                    </div>
+                    <div class="pq-prob-bar-wrap" style="margin-top:0.65rem;">
+                        <div class="pq-prob-bar-label">
+                            <span>Market Implied</span>
+                            <span style="color:#8896b8;font-family:'JetBrains Mono',monospace;">{market_implied:.1f}%</span>
+                        </div>
+                        <div class="pq-prob-bar-track" style="height:10px;">
+                            <div class="pq-prob-bar-fill" style="width:{int(market_implied)}%;--bar-color:#5b7af5;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="pq-prob-bar-wrap">
+                        <div class="pq-prob-bar-label">
+                            <span>EV Edge Strength</span>
+                            <span style="color:{edge_color};font-family:'JetBrains Mono',monospace;font-weight:800;">{edge_display}</span>
+                        </div>
+                        <div class="pq-prob-bar-track" style="height:10px;">
+                            <div class="pq-prob-bar-fill" style="width:{ev_bar_w}%;--bar-color:{ev_bar_color};"></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:0.65rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <span class="pq-badge {'pq-badge-green' if prob_ok else 'pq-badge-red'}">{'✓' if prob_ok else '✗'} Prob Gate ≥{WIN_PROB_THRESHOLD:.0f}%</span>
+                        <span class="pq-badge {'pq-badge-green' if ev_ok else 'pq-badge-red'}">{'✓' if ev_ok else '✗'} EV Gate ≥{EV_THRESHOLD:.1f}%</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:0.85rem;padding-top:0.75rem;border-top:1px solid var(--border-subtle);display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;text-align:center;">
+                <div>
+                    <div style="font-size:0.62rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Projected EV</div>
+                    <div style="font-size:1.2rem;font-weight:900;color:{edge_color};font-family:'JetBrains Mono',monospace;">${ev_dollars:+,.2f}</div>
+                </div>
+                <div>
+                    <div style="font-size:0.62rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Stake</div>
+                    <div style="font-size:1.2rem;font-weight:900;color:var(--text-primary);font-family:'JetBrains Mono',monospace;">${stake:,.0f}</div>
+                </div>
+                <div>
+                    <div style="font-size:0.62rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;">Kelly Size</div>
+                    <div style="font-size:1.2rem;font-weight:900;color:var(--text-primary);font-family:'JetBrains Mono',monospace;">{kelly_pct:.1f}%</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if ev_yield_pct >= 5.0:
-        st.success(
-            "✅ MATURED VALUE ADVANTAGE: Line clears quantitative model thresholds."
-        )
+        st.success("✅ STRONG VALUE EDGE — Line clears both model thresholds. Size within Kelly discipline and execute if liquidity supports.")
     elif ev_yield_pct > 0.0:
-        st.warning(
-            "⚠️ MARGINAL EDGE: Positive EV but below the 5% matured-advantage band — "
-            "size down or wait for a better line."
-        )
+        st.warning("⚠️ MARGINAL EDGE — Positive EV but below the 5% strong-value band. Consider sizing down or waiting for a better line.")
     else:
-        st.error(
-            "⛔ NO EDGE: Offer price exceeds model fair value — pass and preserve bankroll."
-        )
+        st.error("⛔ NO MATHEMATICAL EDGE — Market price exceeds model fair value. Pass and preserve bankroll until the line moves.")
 
     rationale = _audit_rationale_text(
         true_win_prob,
@@ -2461,38 +2973,63 @@ def _render_audit_results(
         prob_ok,
         ev_ok,
     )
-    with st.expander("🔍 View Full Model Rationale & Scraped Context", expanded=False):
+    with st.expander("🔍 View Full Quant Rationale & Settlement Math", expanded=False):
         st.markdown(rationale)
 
 
 def render_audit_my_bet() -> None:
-    st.markdown("### ⚖️ Audit My Bet")
+    st.markdown(
+        """
+        <div class="pq-tab-header">
+            <h2 class="pq-tab-title">⚖️ Check My Bet</h2>
+            <p class="pq-tab-subtitle">
+                Enter your own win estimate and the market price to get an instant edge analysis.
+                <strong>Tells you exactly whether to bet, how much, and why.</strong>
+            </p>
+            <div class="pq-how-to-box">
+                <span>How to use:</span> Enter your true win probability (your estimate),
+                the share price in cents, and your stake. The calculator shows projected EV,
+                Kelly allocation, and a clear pass/play verdict.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         true_win_prob = st.number_input(
-            "Your win estimate (%)",
+            "Your true win probability (%)",
             min_value=0.0,
             max_value=100.0,
             value=77.5,
             step=0.5,
+            help="Your best estimate of the actual win probability (not the market price)",
         )
     with col2:
         share_price = st.number_input(
-            "Share price (¢)",
+            "Market price / share price (¢)",
             min_value=0.01,
             max_value=99.99,
             value=50.0,
             step=1.0,
+            help="The current price in cents — this is what you'd pay per share",
         )
     c1, c2, c3 = st.columns(3)
     with c1:
         stake = st.number_input(
-            "Stake ($)",
+            "Your stake ($)",
             min_value=0.0,
             value=100.0,
             step=10.0,
+            help="Total dollars you plan to wager",
+        )
+    with c2:
+        st.markdown(
+            f'<div style="padding-top:1.5rem;font-size:0.78rem;color:var(--text-muted);">'
+            f'Win gate: >{WIN_PROB_THRESHOLD:.0f}% · EV gate: ≥{EV_THRESHOLD:.1f}%</div>',
+            unsafe_allow_html=True,
         )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2501,32 +3038,135 @@ def render_audit_my_bet() -> None:
 
 
 def render_hype_vs_reality() -> None:
-    st.markdown("### 📣 Hype vs. Reality")
+    st.markdown(
+        """
+        <div class="pq-tab-header">
+            <h2 class="pq-tab-title">📣 Sentiment vs. Math</h2>
+            <p class="pq-tab-subtitle">
+                Compare social sentiment to mathematical probability to detect narrative bubbles.
+                <strong>When hype diverges from math by 20%+, a fading opportunity appears.</strong>
+            </p>
+            <div class="pq-how-to-box">
+                <span>How to use:</span> Set the <em>Social Sentiment</em> slider to how bullish the
+                public narrative feels (0 = very bearish, 100 = extremely bullish). Set <em>True Win</em>
+                to your math-based probability. A big gap signals a potential edge.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What people are saying</p>', unsafe_allow_html=True)
-        sentiment = st.slider("Social Sentiment", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_sent")
-        st.markdown(f'<p class="pq-hype-val">{sentiment:.0f}%</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="pq-hype-col">',
+            unsafe_allow_html=True,
+        )
+        st.markdown('<p class="pq-hype-label">📢 Social Sentiment</p>', unsafe_allow_html=True)
+        sentiment = st.slider("Social Sentiment", 0.0, 100.0, 50.0, 0.5,
+                              label_visibility="collapsed", key="hype_sent")
+        sent_color = "#f59e0b" if sentiment > 65 else "#f43f5e" if sentiment < 35 else "#10b981"
+        st.markdown(
+            f'<p class="pq-hype-val" style="color:{sent_color};">{sentiment:.0f}%</p>'
+            f'<p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin:0.2rem 0 0.5rem;">'
+            f'{"Extremely bullish" if sentiment > 80 else "Bullish" if sentiment > 60 else "Neutral" if sentiment > 40 else "Bearish" if sentiment > 20 else "Extremely bearish"}</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
     with col2:
-        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What the math says</p>', unsafe_allow_html=True)
-        implied_prob = st.slider("True Win", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_real")
-        st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p>', unsafe_allow_html=True)
+        st.markdown('<div class="pq-hype-col">', unsafe_allow_html=True)
+        st.markdown('<p class="pq-hype-label">📐 True Win Probability</p>', unsafe_allow_html=True)
+        implied_prob = st.slider("True Win", 0.0, 100.0, 50.0, 0.5,
+                                 label_visibility="collapsed", key="hype_real")
+        math_color = "#10b981" if implied_prob > 65 else "#f43f5e" if implied_prob < 35 else "#5b7af5"
+        st.markdown(
+            f'<p class="pq-hype-val" style="color:{math_color};">{implied_prob:.0f}%</p>'
+            f'<p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin:0.2rem 0 0.5rem;">'
+            f'{"Strong favorite" if implied_prob > 70 else "Slight favorite" if implied_prob > 52 else "Toss-up" if implied_prob > 48 else "Slight underdog" if implied_prob > 30 else "Heavy underdog"}</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     delta = sentiment - implied_prob
+    abs_delta = abs(delta)
+    delta_cls = "positive" if delta > 0 else "negative" if delta < 0 else "neutral"
+    delta_sign = "+" if delta > 0 else ""
+
+    st.markdown(
+        f"""
+        <div class="pq-sentiment-card">
+            <div style="text-align:center;margin-bottom:0.75rem;">
+                <div style="font-size:0.65rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Divergence Gap</div>
+                <div class="pq-sentiment-delta {delta_cls}">{delta_sign}{delta:.0f}%</div>
+                <div class="pq-sentiment-verdict">
+                    {"Hype exceeds math — public overvaluing" if delta > 5 else "Math exceeds hype — market undervalued" if delta < -5 else "Sentiment aligned with probability"}
+                </div>
+            </div>
+            <div class="pq-prob-bar-wrap">
+                <div class="pq-prob-bar-label">
+                    <span style="color:{"#f59e0b"};">Social Sentiment</span>
+                    <span style="font-family:'JetBrains Mono',monospace;">{sentiment:.0f}%</span>
+                </div>
+                <div class="pq-prob-bar-track" style="height:8px;">
+                    <div class="pq-prob-bar-fill" style="width:{int(sentiment)}%;--bar-color:#f59e0b;"></div>
+                </div>
+            </div>
+            <div class="pq-prob-bar-wrap" style="margin-top:0.4rem;">
+                <div class="pq-prob-bar-label">
+                    <span style="color:{"#5b7af5"};">True Probability</span>
+                    <span style="font-family:'JetBrains Mono',monospace;">{implied_prob:.0f}%</span>
+                </div>
+                <div class="pq-prob-bar-track" style="height:8px;">
+                    <div class="pq-prob-bar-fill" style="width:{int(implied_prob)}%;--bar-color:#5b7af5;"></div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if delta >= DIVERGENCE_TRIGGER:
         st.markdown(
-            '<div class="pq-bubble-badge">Narrative bubble — consider fading the public</div>',
+            f"""
+            <div class="pq-bubble-badge">
+                🔥 NARRATIVE BUBBLE DETECTED (+{delta:.0f}% divergence)<br>
+                <span style="font-size:0.82rem;font-weight:600;opacity:0.85;">
+                Public sentiment is {delta:.0f}% more bullish than the math supports.
+                Consider fading the public — the NO side may offer strong value.
+                </span>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
     elif delta <= -DIVERGENCE_TRIGGER:
         st.markdown(
-            '<div class="pq-card"><span class="pq-badge pq-badge-blue">Crowd too bearish — YES may be cheap</span></div>',
+            f"""
+            <div class="pq-card" style="border-color:rgba(6,182,212,0.4);background:rgba(6,182,212,0.06);margin-top:1rem;text-align:center;">
+                <div style="font-size:1.1rem;font-weight:800;color:var(--cyan);margin-bottom:0.4rem;">
+                    📉 CROWD TOO BEARISH ({delta:.0f}% gap)
+                </div>
+                <div style="font-size:0.88rem;color:var(--text-secondary);">
+                    Math suggests {abs(delta):.0f}% more probability than sentiment reflects.
+                    The YES side may be cheap relative to true probability.
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            '<div class="pq-card"><span class="pq-badge pq-badge-grey">Aligned — no narrative edge right now</span></div>',
+            f"""
+            <div class="pq-card" style="margin-top:1rem;text-align:center;">
+                <div style="font-size:1rem;font-weight:700;color:var(--text-secondary);margin-bottom:0.3rem;">
+                    ✓ Sentiment Aligned — No Narrative Edge
+                </div>
+                <div style="font-size:0.82rem;color:var(--text-muted);">
+                    Gap is only {abs_delta:.0f}% — below the {DIVERGENCE_TRIGGER:.0f}% trigger threshold.
+                    No actionable divergence detected.
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
@@ -2616,7 +3256,22 @@ def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
 
 
 def render_explore_hub() -> None:
-    st.markdown("### 🔍 Explore")
+    st.markdown(
+        """
+        <div class="pq-tab-header">
+            <h2 class="pq-tab-title">🔍 Explore Markets</h2>
+            <p class="pq-tab-subtitle">
+                Browse all live prediction markets across Polymarket and Kalshi.
+                Search by team, player, or event — then tap <strong>Select</strong> to load into the Arbs analyzer.
+            </p>
+            <div class="pq-how-to-box">
+                <span>How to use:</span> Use the filters to narrow down markets by category or platform.
+                Select a market row to push it directly to the Arbs tab for cross-book analysis.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     query = st.session_state.get("global_search_query", "").strip().lower()
 
     try:
@@ -2685,38 +3340,41 @@ def render_explore_hub() -> None:
     start = page * EXPLORE_PAGE_SIZE
     page_df = filtered.iloc[start : start + EXPLORE_PAGE_SIZE]
 
-    st.caption(f"{len(filtered)} markets · showing {start + 1}–{start + len(page_df)}")
+    st.markdown(
+        f'<p class="pq-section-label">{len(filtered):,} markets · showing {start + 1}–{start + len(page_df)}</p>',
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.get("explore_last_pick"):
-        st.success(f"Selected: {st.session_state.explore_last_pick}")
+        st.success(f"✓ Selected: {st.session_state.explore_last_pick}")
 
     _render_matchup_feed(page_df, odds_fmt)
 
-    n1, n2, n3 = st.columns([1, 2, 1])
+    n1, n2, n3 = st.columns([1, 3, 1])
     with n1:
-        if st.button("← Prev", key="explore_prev", disabled=page == 0):
+        if st.button("← Prev", key="explore_prev", disabled=page == 0, use_container_width=True):
             st.session_state.explore_page = page - 1
             st.rerun()
     with n2:
         st.markdown(
-            f'<p class="pq-page-indicator">Page {page + 1} / {total_pages}</p>',
+            f'<p class="pq-page-indicator" style="margin-top:0.5rem;">Page {page + 1} of {total_pages} &nbsp;·&nbsp; {len(filtered):,} total results</p>',
             unsafe_allow_html=True,
         )
     with n3:
-        if st.button("Next →", key="explore_next", disabled=page >= total_pages - 1):
+        if st.button("Next →", key="explore_next", disabled=page >= total_pages - 1, use_container_width=True):
             st.session_state.explore_page = page + 1
             st.rerun()
 
-    st.markdown("#### Quick Actions")
+    st.markdown('<p class="pq-section-label">Quick Actions</p>', unsafe_allow_html=True)
     qa1, qa2 = st.columns(2)
     with qa1:
-        if st.button("⚖️ Audit Selected Bet", use_container_width=True):
-            st.session_state.explore_action_hint = "Switch to the **⚖️ Audit My Bet** tab to run the math."
+        if st.button("⚖️ Audit This Bet", use_container_width=True):
+            st.session_state.explore_action_hint = "Switch to the **⚖️ Check My Bet** tab to run the math on your pick."
             st.rerun()
     with qa2:
-        if st.button("💰 Cross-Book Arb", use_container_width=True):
+        if st.button("💰 Find Cross-Book Arb", use_container_width=True):
             st.session_state.explore_action_hint = (
-                "Switch to the **💰 Risk-Free Arbs** tab — your pick is pre-loaded."
+                "Switch to the **💰 Risk-Free Arbs** tab — your selected market is pre-loaded."
             )
             st.rerun()
 
@@ -3079,10 +3737,22 @@ def _render_arb_recipe(
 
 
 def render_risk_free_arbs() -> None:
-    st.markdown("### 💰 Risk-Free Arbs")
-    st.caption(
-        "Pick one market on each exchange. Each strategy now shows exact contract sizing, "
-        "cash needed per book, payout, profit, and the no-lock warning when prices are too high."
+    st.markdown(
+        """
+        <div class="pq-tab-header">
+            <h2 class="pq-tab-title">💰 Risk-Free Arbs</h2>
+            <p class="pq-tab-subtitle">
+                Find cross-book arbitrage between Polymarket and Kalshi.
+                <strong>When combined cost of YES + NO across both books is below 100¢, you lock guaranteed profit.</strong>
+            </p>
+            <div class="pq-how-to-box">
+                <span>How to use:</span> Select a matching event on both Polymarket and Kalshi.
+                The calculator automatically finds the best strategy (A or B) and shows exact
+                contracts, cash needed, and guaranteed profit if an arb exists.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
@@ -3230,10 +3900,22 @@ def render_risk_free_arbs() -> None:
     cost_a = poly_yes + kalshi_no
     cost_b = poly_no + kalshi_yes
     if cost_a >= 1.0 and cost_b >= 1.0:
+        best_cost = min(cost_a, cost_b)
+        gap_needed = (best_cost - 1.0) * 100
         st.markdown(
-            '<div class="pq-card"><span class="pq-badge pq-badge-grey">'
-            "No guaranteed lock on this pair — combined costs exceed $1.00 on both recipes."
-            "</span></div>",
+            f"""
+            <div class="pq-card" style="border-color:rgba(244,63,94,0.3);background:var(--danger-dim);margin-top:0.75rem;">
+                <div style="font-size:0.95rem;font-weight:800;color:var(--danger);margin-bottom:0.35rem;">
+                    ⛔ No Risk-Free Lock Available
+                </div>
+                <div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.5;">
+                    Combined costs exceed 100¢ on both strategies.
+                    Best pair costs <strong style="font-family:'JetBrains Mono',monospace;">{best_cost*100:.1f}¢</strong> —
+                    needs to drop by <strong>{gap_needed:.1f}¢</strong> before a risk-free arb exists.
+                    Monitor prices and refresh when lines move.
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
@@ -3435,31 +4117,59 @@ POLYMARKET_WALLET_ADDRESS=0xYourPolygonAddress""",
 
 
 def render_ledger() -> None:
-    st.markdown("### 📒 The Ledger")
+    st.markdown(
+        """
+        <div class="pq-tab-header">
+            <h2 class="pq-tab-title">📒 My Ledger</h2>
+            <p class="pq-tab-subtitle">
+                Your complete P&amp;L history synced live from Polymarket and Kalshi fills.
+                <strong>Tracks daily performance, win/loss record, and capital at risk.</strong>
+            </p>
+            <div class="pq-how-to-box">
+                <span>How to use:</span> Connect your API keys in the panel below, then tap
+                <strong>Sync Fills</strong> to pull all your settled trades. The calendar shows
+                daily net P&L at a glance — green = winning day, red = losing day.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     creds = _ledger_credentials()
     _render_api_keys_setup_panel(creds)
 
     if not creds["kalshi"] and not creds["polymarket"]:
-        st.info("Connect at least one account, then tap **Sync Fills** to populate your ledger.")
+        st.info("Connect at least one account above, then tap **Sync Fills** to populate your ledger.")
 
-    if st.button("Sync fills", key="refresh_ledger", type="primary"):
+    if st.button("↻ Sync Fills", key="refresh_ledger", type="primary"):
         fetch_unified_ledger.clear()
         st.rerun()
 
     ledger = fetch_unified_ledger()
     daily_net, wl_record, capital_at_risk = _ledger_kpis(ledger)
 
-    k1, k2, k3 = st.columns(3)
-    daily_cls = "pq-ev-badge" if daily_net >= 0 else "pq-badge-red"
+    daily_color_cls = "profit" if daily_net >= 0 else "loss"
     daily_lbl = f"${daily_net:+,.2f}"
-    k1.markdown(
-        f'<div class="pq-card"><p class="pq-section-label">Daily Net Profit</p>'
-        f'<p style="font-size:1.4rem;font-weight:900;margin:0;"><span class="{daily_cls}">{daily_lbl}</span></p></div>',
+
+    st.markdown(
+        f"""
+        <div class="pq-kpi-row">
+            <div class="pq-kpi-card">
+                <div class="pq-kpi-label">Today's Net P&amp;L</div>
+                <div class="pq-kpi-value {daily_color_cls}">{daily_lbl}</div>
+            </div>
+            <div class="pq-kpi-card">
+                <div class="pq-kpi-label">Monthly W/L Record</div>
+                <div class="pq-kpi-value neutral">{wl_record}</div>
+            </div>
+            <div class="pq-kpi-card">
+                <div class="pq-kpi-label">Capital at Risk</div>
+                <div class="pq-kpi-value neutral">${capital_at_risk:,.2f}</div>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    k2.metric("Monthly W/L Record", wl_record)
-    k3.metric("Total Capital at Risk", f"${capital_at_risk:,.2f}")
 
     _render_performance_calendar(ledger)
 
@@ -3502,38 +4212,21 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* Minimize top padding of the main container */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 95% !important;
+        padding-top: 0.75rem !important;
+        padding-bottom: 1.5rem !important;
+        max-width: 1200px !important;
     }
-    /* Hide the default Streamlit header bar decoration */
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-
-    /* ── Quant terminal theme ── */
     .stApp {
-        background-color: #050505 !important;
-        color: #e5e7eb !important;
+        background-color: #060a14 !important;
+        color: #eaf0ff !important;
     }
     section[data-testid="stSidebar"],
     section[data-testid="stSidebar"] > div {
-        background-color: #0A0C10 !important;
-    }
-
-    /* Stylized container tiles */
-    [data-testid="stMetricContainer"] {
-        background-color: #0E121A !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-        padding: 10px 15px !important;
-    }
-    div.stExpander {
-        background-color: #0A0C10 !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
+        background-color: #080c1a !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -3546,12 +4239,11 @@ def _render_deploy_strip() -> None:
     """Always-visible deploy fingerprint so Cloud vs local is obvious."""
     st.markdown(
         f"""
-        <div style="background:#0d2818;border:1px solid #3fb950;border-radius:6px;
-        padding:0.4rem 0.7rem;margin-bottom:0.45rem;font-size:0.76rem;color:#8b949e;">
-        <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
-        &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
-        <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
-        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        <div class="pq-deploy-strip">
+            <span class="pq-deploy-live">● LIVE</span>
+            <span>Build <span class="pq-build-tag">{html.escape(APP_BUILD)}</span></span>
+            <span style="color:#2e3a5e;">·</span>
+            <span>commit <code style="font-family:'JetBrains Mono',monospace;color:#5b7af5;font-size:0.9em;">{html.escape(GIT_SHA)}</code></span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -3563,9 +4255,19 @@ _render_deploy_strip()
 st.markdown(
     f"""
     <div class="pq-topbar">
-        <span class="pq-topbar-brand">POLY-QUANT</span>
-        <span class="pq-topbar-meta">Polymarket · Kalshi ·
-        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></span>
+        <div class="pq-topbar-left">
+            <div class="pq-topbar-logo">
+                <span class="pq-topbar-brand">POLY-QUANT</span>
+                <span class="pq-topbar-version">v{html.escape(APP_BUILD.split("-")[0])}</span>
+            </div>
+            <div class="pq-topbar-meta">
+                <span class="pq-live-dot"></span>
+                Polymarket &amp; Kalshi · Live market intelligence
+            </div>
+        </div>
+        <div class="pq-topbar-meta" style="font-size:0.68rem;">
+            Sports Betting · Prediction Markets · Arb Detection
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -3578,7 +4280,77 @@ with tool_r:
     render_odds_format_toggle()
 
 
+def _render_welcome_stats() -> None:
+    """Top-of-page stat tiles giving a quick market health snapshot."""
+    try:
+        poly_df = fetch_polymarket_markets()
+        poly_count = len(poly_df) if not poly_df.empty else 0
+        vp_df = _filter_value_plays(poly_df) if not poly_df.empty else pd.DataFrame()
+        vp_count = len(vp_df)
+        top_edge = float(vp_df["Net EV Edge %"].max()) if not vp_df.empty else 0.0
+        total_vol = float(poly_df["Volume"].sum()) if not poly_df.empty else 0.0
+    except Exception:
+        poly_count, vp_count, top_edge, total_vol = 0, 0, 0.0, 0.0
+
+    vol_fmt = f"${total_vol/1_000_000:.1f}M" if total_vol >= 1_000_000 else f"${total_vol/1_000:.0f}K"
+    edge_fmt = f"+{top_edge:.1f}%" if top_edge > 0 else "—"
+
+    st.markdown(
+        f"""
+        <div class="pq-stats-strip">
+            <div class="pq-stat-tile" style="--tile-accent:#5b7af5;">
+                <div class="pq-stat-tile-label">Active Markets</div>
+                <div class="pq-stat-tile-value">{poly_count:,}</div>
+                <div class="pq-stat-tile-sub">Polymarket live contracts</div>
+            </div>
+            <div class="pq-stat-tile" style="--tile-accent:#10b981;">
+                <div class="pq-stat-tile-label">Value Plays</div>
+                <div class="pq-stat-tile-value">{vp_count}</div>
+                <div class="pq-stat-tile-sub">Elite edges detected today</div>
+            </div>
+            <div class="pq-stat-tile" style="--tile-accent:#f59e0b;">
+                <div class="pq-stat-tile-label">Top Edge</div>
+                <div class="pq-stat-tile-value">{edge_fmt}</div>
+                <div class="pq-stat-tile-sub">Best net EV available</div>
+            </div>
+            <div class="pq-stat-tile" style="--tile-accent:#06b6d4;">
+                <div class="pq-stat-tile-label">Market Volume</div>
+                <div class="pq-stat-tile-value">{vol_fmt}</div>
+                <div class="pq-stat-tile-sub">Total 24h liquidity pool</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_onboard_guide() -> None:
+    """Quick-start how-to strip for new users."""
+    st.markdown(
+        """
+        <div class="pq-onboard-strip">
+            <div class="pq-onboard-icon">💡</div>
+            <div class="pq-onboard-text">
+                <strong>How to use POLY-QUANT:</strong> This terminal finds mathematically
+                profitable bets across Polymarket and Kalshi using quantitative edge analysis.
+                <div class="pq-onboard-steps">
+                    <span class="pq-onboard-step">1. Browse Value Plays for top edges</span>
+                    <span class="pq-onboard-step">2. Explore all live markets</span>
+                    <span class="pq-onboard-step">3. Check Bet audits your own picks</span>
+                    <span class="pq-onboard-step">4. Arbs finds risk-free locked profits</span>
+                    <span class="pq-onboard-step">5. Ledger tracks your P&amp;L</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def main() -> None:
+    _render_welcome_stats()
+    _render_onboard_guide()
+
     (
         tab_plays,
         tab_explore,
@@ -3589,11 +4361,11 @@ def main() -> None:
     ) = st.tabs(
         [
             "🔥 Value Plays",
-            "🔍 Explore",
-            "⚖️ Check Bet",
+            "🔍 Explore Markets",
+            "⚖️ Check My Bet",
             "📣 Sentiment",
-            "💰 Arbs",
-            "📒 Ledger",
+            "💰 Risk-Free Arbs",
+            "📒 My Ledger",
         ]
     )
 
