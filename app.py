@@ -2051,6 +2051,94 @@ def render_top_value_plays() -> None:
     _render_value_plays_dataframe(df)
 
 
+def _kelly_allocation_pct(true_win_prob: float, share_price_cents: float) -> float:
+    """Presentation-only Kelly fraction (%) for a $1-settlement contract at offer price."""
+    p = true_win_prob / 100.0
+    c = share_price_cents / 100.0
+    if not (0.0 < c < 1.0):
+        return 0.0
+    kelly = (p - c) / (1.0 - c)
+    return max(0.0, min(kelly, 1.0)) * 100.0
+
+
+def _audit_rationale_text(
+    true_win_prob: float,
+    stake: float,
+    share_price: float,
+    ev_dollars: float,
+    ev_yield_pct: float,
+    kelly_pct: float,
+    prob_ok: bool,
+    ev_ok: bool,
+) -> str:
+    """Narrative deep-dive for audit expander (display only)."""
+    market_implied = share_price
+    return f"""
+**Model inputs**
+- Your true win estimate: **{true_win_prob:.1f}%**
+- Offered share price: **{share_price:.1f}¢** (market implied **{market_implied:.1f}%**)
+- Stake: **${stake:,.2f}**
+
+**Settlement math** (unchanged engine)
+- Projected EV: **${ev_dollars:+,.2f}** on ${stake:,.2f} stake
+- Quantitative edge: **{ev_yield_pct:+.2f}%**
+- Kelly allocation (presentation): **{kelly_pct:.1f}%** of bankroll units
+
+**Gatekeeper thresholds**
+- Win probability gate (≥ {WIN_PROB_THRESHOLD:.0f}%): **{"PASS" if prob_ok else "FAIL"}**
+- EV edge gate (≥ {EV_THRESHOLD:.1f}%): **{"PASS" if ev_ok else "FAIL"}**
+
+**Desk read**
+{"Both gates clear — size within Kelly discipline and execute if liquidity supports the line." if prob_ok and ev_ok else "One or more gates failed — reduce size or pass until the line moves."}
+"""
+
+
+def _render_audit_results(
+    true_win_prob: float,
+    stake: float,
+    share_price: float,
+    ev_dollars: float,
+    ev_yield_pct: float,
+) -> None:
+    """Structured metric layout for Audit My Bet readout."""
+    kelly_pct = _kelly_allocation_pct(true_win_prob, share_price)
+    prob_ok = true_win_prob >= WIN_PROB_THRESHOLD
+    ev_ok = ev_yield_pct >= EV_THRESHOLD
+    edge_display = f"+{ev_yield_pct:.2f}%" if ev_yield_pct >= 0 else f"{ev_yield_pct:.2f}%"
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("📊 True Probability", f"{true_win_prob:.1f}%")
+    m2.metric("⚡ Quantitative Edge", edge_display)
+    m3.metric("💰 Recommended Allocation", f"{kelly_pct:.1f}% units")
+
+    if ev_yield_pct >= 5.0:
+        st.success(
+            "✅ MATURED VALUE ADVANTAGE: Line clears quantitative model thresholds."
+        )
+    elif ev_yield_pct > 0.0:
+        st.warning(
+            "⚠️ MARGINAL EDGE: Positive EV but below the 5% matured-advantage band — "
+            "size down or wait for a better line."
+        )
+    else:
+        st.error(
+            "⛔ NO EDGE: Offer price exceeds model fair value — pass and preserve bankroll."
+        )
+
+    rationale = _audit_rationale_text(
+        true_win_prob,
+        stake,
+        share_price,
+        ev_dollars,
+        ev_yield_pct,
+        kelly_pct,
+        prob_ok,
+        ev_ok,
+    )
+    with st.expander("🔍 View Full Model Rationale & Scraped Context", expanded=False):
+        st.markdown(rationale)
+
+
 def render_audit_my_bet() -> None:
     st.markdown("### ⚖️ Audit My Bet")
 
@@ -2082,23 +2170,7 @@ def render_audit_my_bet() -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
     ev_dollars, ev_yield_pct = _calc_ev_dollars(true_win_prob, stake, share_price)
-    ev_ok = ev_yield_pct >= EV_THRESHOLD
-    prob_ok = true_win_prob >= WIN_PROB_THRESHOLD
-
-    if ev_ok and prob_ok:
-        st.markdown(
-            f"""
-            <div class="pq-banner-play">
-                Green light — playable<br>
-                <span style="font-size:0.88rem;font-weight:600;">
-                Projected ${ev_dollars:+,.2f} on ${stake:,.2f} stake · {ev_yield_pct:+.2f}% edge
-                </span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown('<div class="pq-banner-pass">Pass — edge or probability too thin</div>', unsafe_allow_html=True)
+    _render_audit_results(true_win_prob, stake, share_price, ev_dollars, ev_yield_pct)
 
 
 def render_hype_vs_reality() -> None:
