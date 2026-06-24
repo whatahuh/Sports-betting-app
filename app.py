@@ -58,7 +58,7 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.2.0-arb-action-panel"
+APP_BUILD = "4.0.0-studio-overhaul"
 GIT_SHA = "b556168+"
 
 MIN_VOLUME = 5_000.0
@@ -669,6 +669,407 @@ EXPLORE_CATEGORIES = (
 EXPLORE_SPORTS_TYPES = ("All", "Matchups", "Game Lines", "Futures", "Parlays")
 EXPLORE_SOURCES = ("Both", "Polymarket", "Kalshi")
 
+APP_SECTIONS = (
+    "Overview",
+    "Value Plays",
+    "Explore",
+    "Bet Check",
+    "Sentiment",
+    "Arbitrage",
+    "Ledger",
+)
+
+PAGE_META: dict[str, dict[str, Any]] = {
+    "Overview": {
+        "eyebrow": "Mission control",
+        "title": "A cleaner workspace for finding edges fast",
+        "description": "Start with a live snapshot, then move from discovery to execution without hunting through the app.",
+        "badges": ["Live markets", "Cross-book workflow", "Ledger-aware"],
+    },
+    "Value Plays": {
+        "eyebrow": "Best bets now",
+        "title": "Model-ranked value plays",
+        "description": "The highest-conviction opportunities ranked by probability, expected value, and tradable market quality.",
+        "badges": ["Polymarket only", "Strict edge filter", "Fast scan"],
+    },
+    "Explore": {
+        "eyebrow": "Browse everything",
+        "title": "Search and filter the live market universe",
+        "description": "Narrow the board by category, source, and sport, then send any market into bet check or arbitrage in one click.",
+        "badges": ["Unified catalog", "Global search", "1-click handoff"],
+    },
+    "Bet Check": {
+        "eyebrow": "Before you place it",
+        "title": "Pressure test a bet before risking bankroll",
+        "description": "Compare your fair probability to the offered line, see the edge instantly, and size the position with Kelly guidance.",
+        "badges": ["Probability math", "Edge check", "Sizing guidance"],
+    },
+    "Sentiment": {
+        "eyebrow": "Narrative risk",
+        "title": "See where hype and math diverge",
+        "description": "Measure when public sentiment is overheating versus your own fair probability read.",
+        "badges": ["Crowd temperature", "Simple signal", "Fade setup"],
+    },
+    "Arbitrage": {
+        "eyebrow": "Cross-book execution",
+        "title": "Build cleaner arbitrage setups",
+        "description": "Compare both books side by side, size each leg automatically, and focus on the best lock or closest near-lock.",
+        "badges": ["Two-book compare", "Sizing recipes", "Auto suggestions"],
+    },
+    "Ledger": {
+        "eyebrow": "Performance",
+        "title": "Track results like a real desk",
+        "description": "Sync filled orders, monitor daily performance, and understand capital at risk across both exchanges.",
+        "badges": ["PnL calendar", "Open risk", "Connected books"],
+    },
+}
+
+
+def _format_money_compact(value: float) -> str:
+    abs_value = abs(float(value))
+    if abs_value >= 1_000_000:
+        return f"${value / 1_000_000:.1f}M"
+    if abs_value >= 1_000:
+        return f"${value / 1_000:.1f}K"
+    if float(value).is_integer():
+        return f"${value:,.0f}"
+    return f"${value:,.2f}"
+
+
+def _clear_live_caches(*, include_ledger: bool = False) -> None:
+    fetch_polymarket_markets.clear()
+    fetch_kalshi_markets.clear()
+    fetch_kalshi_player_props.clear()
+    build_explore_catalog.clear()
+    if include_ledger:
+        fetch_unified_ledger.clear()
+
+
+def _render_page_intro(section: str) -> None:
+    meta = PAGE_META[section]
+    badges = "".join(
+        f'<span class="pq-shell-chip">{html.escape(str(badge))}</span>'
+        for badge in meta.get("badges", [])
+    )
+    st.markdown(
+        f"""
+        <div class="pq-page-hero">
+            <p class="pq-page-eyebrow">{html.escape(str(meta['eyebrow']))}</p>
+            <div class="pq-page-headline">
+                <div>
+                    <h2>{html.escape(str(meta['title']))}</h2>
+                    <p>{html.escape(str(meta['description']))}</p>
+                </div>
+                <div class="pq-page-chip-row">{badges}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_stat_tile(label: str, value: str, caption: str, tone: str = "neutral") -> None:
+    tone_class = {
+        "positive": "pq-stat-positive",
+        "warning": "pq-stat-warning",
+        "accent": "pq-stat-accent",
+    }.get(tone, "pq-stat-neutral")
+    st.markdown(
+        f"""
+        <div class="pq-stat-tile {tone_class}">
+            <p class="pq-stat-label">{html.escape(label)}</p>
+            <p class="pq-stat-value">{html.escape(value)}</p>
+            <p class="pq-stat-caption">{html.escape(caption)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _collect_dashboard_snapshot() -> dict[str, Any]:
+    try:
+        poly = fetch_polymarket_markets()
+    except Exception:
+        poly = pd.DataFrame()
+
+    try:
+        kalshi_main = fetch_kalshi_markets()
+    except Exception:
+        kalshi_main = pd.DataFrame()
+
+    try:
+        kalshi_props = fetch_kalshi_player_props()
+    except Exception:
+        kalshi_props = pd.DataFrame()
+
+    kalshi_frames = [df for df in (kalshi_main, kalshi_props) if not df.empty]
+    kalshi = (
+        pd.concat(kalshi_frames, ignore_index=True).drop_duplicates(subset=["ticker"])
+        if kalshi_frames else pd.DataFrame()
+    )
+
+    try:
+        catalog = build_explore_catalog()
+    except Exception:
+        catalog = pd.DataFrame()
+
+    poly_priced = poly.dropna(subset=["Yes Price", "No Price"]).copy() if not poly.empty else pd.DataFrame()
+    kalshi_priced = _filter_kalshi_tradeable(kalshi) if not kalshi.empty else pd.DataFrame()
+    value_plays = _filter_value_plays(poly) if not poly.empty else pd.DataFrame()
+
+    creds = _ledger_credentials()
+    if creds["kalshi"] or creds["polymarket"]:
+        try:
+            ledger = fetch_unified_ledger()
+        except Exception:
+            ledger = _empty_ledger()
+    else:
+        ledger = _empty_ledger()
+
+    daily_net, wl_record, capital_at_risk = _ledger_kpis(ledger)
+
+    source_mix = (
+        catalog["Source"].value_counts().rename_axis("Source").reset_index(name="Markets")
+        if not catalog.empty else pd.DataFrame(columns=["Source", "Markets"])
+    )
+    category_mix = (
+        catalog["Category"].value_counts().head(6).rename_axis("Category").reset_index(name="Markets")
+        if not catalog.empty else pd.DataFrame(columns=["Category", "Markets"])
+    )
+
+    edge_chart = pd.DataFrame(columns=["Market", "Net EV Edge %"])
+    if not value_plays.empty:
+        edge_chart = value_plays[["Question", "Net EV Edge %"]].copy()
+        edge_chart["Market"] = edge_chart["Question"].apply(lambda text: _short_title(text, 32))
+        edge_chart = edge_chart[["Market", "Net EV Edge %"]]
+
+    ledger_trend = pd.DataFrame(columns=["Date", "Net Return $"])
+    if not ledger.empty:
+        settled = ledger[ledger["Status"].isin(["WON", "LOST"])].copy()
+        if not settled.empty:
+            ledger_trend = (
+                settled.groupby("Date", as_index=False)["Net Return $"]
+                .sum()
+                .tail(10)
+            )
+
+    return {
+        "poly": poly,
+        "poly_priced": poly_priced,
+        "kalshi": kalshi,
+        "kalshi_priced": kalshi_priced,
+        "catalog": catalog,
+        "value_plays": value_plays,
+        "ledger": ledger,
+        "creds": creds,
+        "daily_net": daily_net,
+        "wl_record": wl_record,
+        "capital_at_risk": capital_at_risk,
+        "source_mix": source_mix,
+        "category_mix": category_mix,
+        "edge_chart": edge_chart,
+        "ledger_trend": ledger_trend,
+    }
+
+
+def _render_shell_header(snapshot: dict[str, Any]) -> None:
+    total_markets = len(snapshot["catalog"])
+    elite_count = len(snapshot["value_plays"])
+    best_edge = (
+        float(snapshot["value_plays"]["Net EV Edge %"].max())
+        if not snapshot["value_plays"].empty else 0.0
+    )
+    books_connected = sum(1 for enabled in snapshot["creds"].values() if enabled)
+
+    left, right = st.columns([1.8, 1.0])
+    with left:
+        st.markdown(
+            f"""
+            <div class="pq-shell-hero">
+                <p class="pq-shell-kicker">POLY-QUANT Studio</p>
+                <h1>Professional market intelligence that is fast to scan and easy to use.</h1>
+                <p>Search everything globally, inspect the best value plays, compare both books, and review performance from one cleaner workflow.</p>
+                <div class="pq-page-chip-row">
+                    <span class="pq-shell-chip">{total_markets} live markets indexed</span>
+                    <span class="pq-shell-chip">{elite_count} model-cleared plays</span>
+                    <span class="pq-shell-chip">{books_connected}/2 books connected</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown(
+            f"""
+            <div class="pq-shell-status">
+                <p class="pq-shell-status-label">Live workspace status</p>
+                <div class="pq-shell-status-grid">
+                    <div>
+                        <span class="pq-shell-status-value">{best_edge:.1f}%</span>
+                        <span class="pq-shell-status-copy">best live edge</span>
+                    </div>
+                    <div>
+                        <span class="pq-shell-status-value">{len(snapshot['poly_priced'])}</span>
+                        <span class="pq-shell-status-copy">priced Polymarket markets</span>
+                    </div>
+                    <div>
+                        <span class="pq-shell-status-value">{len(snapshot['kalshi_priced'])}</span>
+                        <span class="pq-shell-status-copy">priced Kalshi markets</span>
+                    </div>
+                    <div>
+                        <span class="pq-shell-status-value">{snapshot['wl_record']}</span>
+                        <span class="pq-shell-status-copy">month record</span>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<p class="pq-section-label">Global search</p>', unsafe_allow_html=True)
+    render_global_search_bar()
+
+
+def _render_sidebar(snapshot: dict[str, Any]) -> None:
+    with st.sidebar:
+        st.markdown(
+            f"""
+            <div class="pq-sidebar-brand">
+                <p class="pq-sidebar-kicker">Workspace</p>
+                <h2>POLY-QUANT Studio</h2>
+                <p>Cleaner navigation, faster scanning, and clearer decision support across both books.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.radio(
+            "Navigate",
+            options=list(APP_SECTIONS),
+            key="app_nav",
+            label_visibility="collapsed",
+        )
+        st.markdown('<div class="pq-sidebar-panel">', unsafe_allow_html=True)
+        st.markdown("**Workflow**")
+        st.markdown("1. Start on **Overview** to see the board.")
+        st.markdown("2. Open **Value Plays** or **Explore** to find a market.")
+        st.markdown("3. Use **Bet Check** or **Arbitrage** before acting.")
+        st.markdown("4. Sync **Ledger** to track real performance.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("**Odds display**")
+        render_odds_format_toggle()
+
+        if st.button("Refresh live data", key="sidebar_refresh_all", use_container_width=True, type="primary"):
+            _clear_live_caches(include_ledger=True)
+            st.rerun()
+
+        connected = []
+        if snapshot["creds"]["polymarket"]:
+            connected.append("Polymarket connected")
+        if snapshot["creds"]["kalshi"]:
+            connected.append("Kalshi connected")
+        connection_text = " · ".join(connected) if connected else "Ledger not connected yet"
+
+        st.markdown(
+            f"""
+            <div class="pq-sidebar-panel">
+                <p class="pq-sidebar-stat">{len(snapshot['catalog'])} markets live</p>
+                <p class="pq-sidebar-copy">{len(snapshot['value_plays'])} elite value plays · {connection_text}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_overview_dashboard(snapshot: dict[str, Any]) -> None:
+    _render_page_intro("Overview")
+
+    market_count = len(snapshot["catalog"])
+    value_count = len(snapshot["value_plays"])
+    arb_inventory = min(len(snapshot["poly_priced"]), len(snapshot["kalshi_priced"]))
+    total_volume = (
+        float(snapshot["poly_priced"]["Volume"].fillna(0).sum())
+        if not snapshot["poly_priced"].empty else 0.0
+    )
+    best_edge = (
+        float(snapshot["value_plays"]["Net EV Edge %"].max())
+        if not snapshot["value_plays"].empty else 0.0
+    )
+    avg_yes_price = (
+        float(snapshot["catalog"]["Yes Price"].dropna().mean()) * 100.0
+        if not snapshot["catalog"].empty and snapshot["catalog"]["Yes Price"].notna().any() else 0.0
+    )
+
+    s1, s2, s3, s4 = st.columns(4)
+    with s1:
+        _render_stat_tile("Live markets", f"{market_count}", "Indexed across Polymarket and Kalshi", tone="accent")
+    with s2:
+        _render_stat_tile("Elite value plays", f"{value_count}", "Plays clearing the strict model threshold", tone="positive")
+    with s3:
+        _render_stat_tile("Arb-ready inventory", f"{arb_inventory}", "Smaller of the two priced books available now")
+    with s4:
+        _render_stat_tile("Capital at risk", _format_money_compact(snapshot["capital_at_risk"]), "Open positions currently in the ledger", tone="warning")
+
+    s5, s6, s7, s8 = st.columns(4)
+    with s5:
+        _render_stat_tile("Best live edge", f"{best_edge:.1f}%", "Highest net EV edge in the current model scan", tone="positive")
+    with s6:
+        _render_stat_tile("Polymarket volume", _format_money_compact(total_volume), "Aggregate live volume on priced Polymarket markets")
+    with s7:
+        _render_stat_tile("Average YES price", f"{avg_yes_price:.1f}¢", "Quick pulse of where live pricing is clustering")
+    with s8:
+        _render_stat_tile("Current month", snapshot["wl_record"], f"Today's realized PnL: {_format_money_compact(snapshot['daily_net'])}")
+
+    c1, c2 = st.columns([1.15, 0.85])
+    with c1:
+        st.markdown("#### Market mix")
+        if not snapshot["source_mix"].empty:
+            st.bar_chart(snapshot["source_mix"].set_index("Source"), height=220)
+        else:
+            st.info("Live source mix will appear here when markets load.")
+
+        st.markdown("#### Category coverage")
+        if not snapshot["category_mix"].empty:
+            st.bar_chart(snapshot["category_mix"].set_index("Category"), height=260)
+        else:
+            st.info("Category coverage will populate once the catalog is available.")
+
+    with c2:
+        st.markdown("#### Best live edges")
+        if not snapshot["edge_chart"].empty:
+            st.bar_chart(snapshot["edge_chart"].set_index("Market"), height=220)
+        else:
+            st.info("No value plays are clearing the model threshold right now.")
+
+        st.markdown("#### Recent ledger trend")
+        if not snapshot["ledger_trend"].empty:
+            trend = snapshot["ledger_trend"].copy().set_index("Date")
+            st.line_chart(trend, height=260)
+        else:
+            st.info("Connect a ledger source to unlock performance trend lines.")
+
+    st.markdown("#### Start here")
+    a1, a2, a3, a4 = st.columns(4)
+    actions = [
+        (a1, "Open Value Plays", "Scan the sharpest model-cleared opportunities first.", "Value Plays", "go_value_plays"),
+        (a2, "Explore Markets", "Browse the whole board when you want more context.", "Explore", "go_explore"),
+        (a3, "Check a Bet", "Audit a line with your own fair probability before placing it.", "Bet Check", "go_bet_check"),
+        (a4, "Build an Arb", "Compare both books and size a cleaner lock or near-lock.", "Arbitrage", "go_arb"),
+    ]
+    for column, title, copy, target, key in actions:
+        with column:
+            st.markdown(
+                f"""
+                <div class="pq-action-card">
+                    <p class="pq-action-title">{html.escape(title)}</p>
+                    <p class="pq-action-copy">{html.escape(copy)}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button(title, key=key, use_container_width=True):
+                st.session_state.app_nav = target
+                st.rerun()
 
 def _classify_market(
     title: str,
@@ -830,6 +1231,8 @@ def _init_session() -> None:
         st.session_state.explore_page = 0
     if "arb_poly_anchor" not in st.session_state:
         st.session_state.arb_poly_anchor = None
+    if "app_nav" not in st.session_state:
+        st.session_state.app_nav = "Overview"
 
 
 def get_odds_format() -> str:
@@ -2334,10 +2737,10 @@ def _render_value_plays_dataframe(df: pd.DataFrame) -> None:
 
 
 def render_top_value_plays() -> None:
-    st.markdown("### 🔥 Top Value Plays")
+    _render_page_intro("Value Plays")
     st.caption(
-        f"Elite tier — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% · "
-        f"top {VALUE_PLAYS_MAX} sharpest edges"
+        f"Elite tier only — win prob >{VALUE_PLAYS_WIN_MIN:.0f}%, net EV ≥{VALUE_PLAYS_EV_EDGE_MIN:.0f}% · "
+        f"top {VALUE_PLAYS_MAX} sharpest edges ranked for quick scanning"
     )
 
     if st.button("↻ Refresh markets", key="refresh_poly"):
@@ -2373,6 +2776,12 @@ def render_top_value_plays() -> None:
         )
         return
 
+    avg_edge = float(df["Net EV Edge %"].mean()) if not df.empty else 0.0
+    avg_volume = float(df["Volume"].fillna(0).mean()) if not df.empty else 0.0
+    stats1, stats2, stats3 = st.columns(3)
+    stats1.metric("Qualified plays", len(df))
+    stats2.metric("Average net EV edge", f"{avg_edge:.1f}%")
+    stats3.metric("Average market volume", _format_money_compact(avg_volume))
     st.caption(f"{len(df)} elite anomal{'y' if len(df) == 1 else 'ies'} on slate")
     _render_value_plays_dataframe(df)
 
@@ -2466,7 +2875,7 @@ def _render_audit_results(
 
 
 def render_audit_my_bet() -> None:
-    st.markdown("### ⚖️ Audit My Bet")
+    _render_page_intro("Bet Check")
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -2501,7 +2910,7 @@ def render_audit_my_bet() -> None:
 
 
 def render_hype_vs_reality() -> None:
-    st.markdown("### 📣 Hype vs. Reality")
+    _render_page_intro("Sentiment")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -2514,6 +2923,10 @@ def render_hype_vs_reality() -> None:
         st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p>', unsafe_allow_html=True)
 
     delta = sentiment - implied_prob
+    gap1, gap2, gap3 = st.columns(3)
+    gap1.metric("Crowd sentiment", f"{sentiment:.0f}%")
+    gap2.metric("Your fair win rate", f"{implied_prob:.0f}%")
+    gap3.metric("Narrative gap", f"{delta:+.0f} pts")
     if delta >= DIVERGENCE_TRIGGER:
         st.markdown(
             '<div class="pq-bubble-badge">Narrative bubble — consider fading the public</div>',
@@ -2616,7 +3029,7 @@ def _render_matchup_feed(page_df: pd.DataFrame, odds_fmt: str) -> None:
 
 
 def render_explore_hub() -> None:
-    st.markdown("### 🔍 Explore")
+    _render_page_intro("Explore")
     query = st.session_state.get("global_search_query", "").strip().lower()
 
     try:
@@ -2685,6 +3098,10 @@ def render_explore_hub() -> None:
     start = page * EXPLORE_PAGE_SIZE
     page_df = filtered.iloc[start : start + EXPLORE_PAGE_SIZE]
 
+    exp1, exp2, exp3 = st.columns(3)
+    exp1.metric("Markets in view", len(filtered))
+    exp2.metric("Books represented", int(filtered["Source"].nunique()))
+    exp3.metric("Median YES price", f"{filtered['Yes Price'].median() * 100:.1f}¢")
     st.caption(f"{len(filtered)} markets · showing {start + 1}–{start + len(page_df)}")
 
     if st.session_state.get("explore_last_pick"):
@@ -2710,14 +3127,14 @@ def render_explore_hub() -> None:
     st.markdown("#### Quick Actions")
     qa1, qa2 = st.columns(2)
     with qa1:
-        if st.button("⚖️ Audit Selected Bet", use_container_width=True):
-            st.session_state.explore_action_hint = "Switch to the **⚖️ Audit My Bet** tab to run the math."
+        if st.button("Open Bet Check", key="explore_to_bet_check", use_container_width=True):
+            st.session_state.app_nav = "Bet Check"
+            st.session_state.explore_action_hint = "Selected market is ready for a manual bet check input."
             st.rerun()
     with qa2:
-        if st.button("💰 Cross-Book Arb", use_container_width=True):
-            st.session_state.explore_action_hint = (
-                "Switch to the **💰 Risk-Free Arbs** tab — your pick is pre-loaded."
-            )
+        if st.button("Open Arbitrage", key="explore_to_arb", use_container_width=True):
+            st.session_state.app_nav = "Arbitrage"
+            st.session_state.explore_action_hint = "Selected market has been carried into the arbitrage workspace."
             st.rerun()
 
     if st.session_state.get("explore_action_hint"):
@@ -3079,7 +3496,7 @@ def _render_arb_recipe(
 
 
 def render_risk_free_arbs() -> None:
-    st.markdown("### 💰 Risk-Free Arbs")
+    _render_page_intro("Arbitrage")
     st.caption(
         "Pick one market on each exchange. Each strategy now shows exact contract sizing, "
         "cash needed per book, payout, profit, and the no-lock warning when prices are too high."
@@ -3125,6 +3542,11 @@ def render_risk_free_arbs() -> None:
     if poly_priced.empty or kalshi_priced.empty:
         st.warning("Not enough priced contracts on both books.")
         return
+
+    arb1, arb2, arb3 = st.columns(3)
+    arb1.metric("Polymarket priced", len(poly_priced))
+    arb2.metric("Kalshi priced", len(kalshi_priced))
+    arb3.metric("Cross-book inventory", min(len(poly_priced), len(kalshi_priced)))
 
     odds_fmt = get_odds_format()
     poly_options = {row["id"]: row["Question"] for _, row in poly_priced.iterrows()}
@@ -3435,7 +3857,7 @@ POLYMARKET_WALLET_ADDRESS=0xYourPolygonAddress""",
 
 
 def render_ledger() -> None:
-    st.markdown("### 📒 The Ledger")
+    _render_page_intro("Ledger")
 
     creds = _ledger_credentials()
     _render_api_keys_setup_panel(creds)
@@ -3450,7 +3872,8 @@ def render_ledger() -> None:
     ledger = fetch_unified_ledger()
     daily_net, wl_record, capital_at_risk = _ledger_kpis(ledger)
 
-    k1, k2, k3 = st.columns(3)
+    settled_bets = int((ledger["Status"].isin(["WON", "LOST"]).sum())) if not ledger.empty else 0
+    k1, k2, k3, k4 = st.columns(4)
     daily_cls = "pq-ev-badge" if daily_net >= 0 else "pq-badge-red"
     daily_lbl = f"${daily_net:+,.2f}"
     k1.markdown(
@@ -3460,6 +3883,7 @@ def render_ledger() -> None:
     )
     k2.metric("Monthly W/L Record", wl_record)
     k3.metric("Total Capital at Risk", f"${capital_at_risk:,.2f}")
+    k4.metric("Settled bets", settled_bets)
 
     _render_performance_calendar(ledger)
 
@@ -3494,46 +3918,291 @@ def render_ledger() -> None:
 # --------------------------------------------------------------------------- #
 
 st.set_page_config(
-    page_title=f"POLY-QUANT · {APP_BUILD}",
+    page_title=f"POLY-QUANT Studio · {APP_BUILD}",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown("""
     <style>
-    /* Minimize top padding of the main container */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 95% !important;
+        padding-top: 1.1rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 1250px !important;
     }
-    /* Hide the default Streamlit header bar decoration */
-    header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    header, #MainMenu, footer {visibility: hidden;}
 
-    /* ── Quant terminal theme ── */
     .stApp {
-        background-color: #050505 !important;
+        background:
+            radial-gradient(circle at top left, rgba(31,111,235,0.16), transparent 26%),
+            radial-gradient(circle at top right, rgba(63,185,80,0.10), transparent 22%),
+            linear-gradient(180deg, #06080d 0%, #0b1020 48%, #06080d 100%) !important;
         color: #e5e7eb !important;
     }
     section[data-testid="stSidebar"],
     section[data-testid="stSidebar"] > div {
-        background-color: #0A0C10 !important;
+        background: linear-gradient(180deg, #0b1220 0%, #0a0f19 100%) !important;
+        border-right: 1px solid rgba(148, 163, 184, 0.12);
     }
-
-    /* Stylized container tiles */
     [data-testid="stMetricContainer"] {
-        background-color: #0E121A !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
-        padding: 10px 15px !important;
+        background: rgba(12, 18, 30, 0.92) !important;
+        border: 1px solid rgba(148, 163, 184, 0.14) !important;
+        border-radius: 16px !important;
+        padding: 14px 16px !important;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
     }
     div.stExpander {
-        background-color: #0A0C10 !important;
-        border: 1px solid #1F2937 !important;
-        border-radius: 6px !important;
+        background: rgba(10, 14, 24, 0.92) !important;
+        border: 1px solid rgba(148, 163, 184, 0.14) !important;
+        border-radius: 14px !important;
+    }
+    .pq-deploy-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.9rem;
+        background: rgba(11, 17, 30, 0.88);
+        border: 1px solid rgba(88,166,255,0.22);
+        border-radius: 16px;
+        color: #bfd7ff;
+        font-size: 0.82rem;
+    }
+    .pq-deploy-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(88,166,255,0.16);
+        color: #7cc2ff;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+    }
+    .pq-shell-hero, .pq-shell-status, .pq-page-hero, .pq-action-card, .pq-sidebar-panel {
+        background: linear-gradient(180deg, rgba(11,17,30,0.95) 0%, rgba(10,14,24,0.95) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 20px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    }
+    .pq-shell-hero {
+        padding: 1.35rem 1.4rem;
+        min-height: 100%;
+    }
+    .pq-shell-kicker, .pq-page-eyebrow, .pq-sidebar-kicker {
+        margin: 0 0 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #7cc2ff;
+    }
+    .pq-shell-hero h1 {
+        margin: 0;
+        font-size: 2.2rem;
+        line-height: 1.06;
+        letter-spacing: -0.04em;
+        color: #f8fafc;
+    }
+    .pq-shell-hero p {
+        margin: 0.75rem 0 0;
+        color: #93a4bf;
+        font-size: 0.97rem;
+        line-height: 1.6;
+        max-width: 60rem;
+    }
+    .pq-shell-status {
+        padding: 1.15rem 1.2rem;
+        min-height: 100%;
+    }
+    .pq-shell-status-label {
+        margin: 0 0 0.85rem;
+        color: #8ea5c7;
+        font-size: 0.76rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .pq-shell-status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.9rem 0.75rem;
+    }
+    .pq-shell-status-value {
+        display: block;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #f8fafc;
+        letter-spacing: -0.03em;
+    }
+    .pq-shell-status-copy {
+        display: block;
+        margin-top: 0.18rem;
+        color: #8ea5c7;
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+    .pq-page-hero {
+        padding: 1rem 1.15rem;
+        margin: 0.2rem 0 0.9rem;
+    }
+    .pq-page-headline {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    .pq-page-hero h2 {
+        margin: 0;
+        color: #f8fafc;
+        font-size: 1.35rem;
+        letter-spacing: -0.03em;
+    }
+    .pq-page-hero p {
+        margin: 0.35rem 0 0;
+        color: #98a7bf;
+        line-height: 1.55;
+        max-width: 48rem;
+    }
+    .pq-page-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        align-items: flex-start;
+    }
+    .pq-shell-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.28rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid rgba(124, 194, 255, 0.22);
+        background: rgba(15, 23, 42, 0.72);
+        color: #cfe7ff;
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+    .pq-stat-tile {
+        padding: 1rem 1rem 0.95rem;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: linear-gradient(180deg, rgba(12,18,30,0.95) 0%, rgba(9,13,24,0.95) 100%);
+        min-height: 140px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+    }
+    .pq-stat-neutral { border-color: rgba(148, 163, 184, 0.14); }
+    .pq-stat-positive { border-color: rgba(63,185,80,0.34); }
+    .pq-stat-warning { border-color: rgba(245,158,11,0.34); }
+    .pq-stat-accent { border-color: rgba(88,166,255,0.34); }
+    .pq-stat-label {
+        margin: 0;
+        color: #8ea5c7;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+    .pq-stat-value {
+        margin: 0.65rem 0 0;
+        color: #f8fafc;
+        font-size: 1.7rem;
+        font-weight: 850;
+        letter-spacing: -0.05em;
+    }
+    .pq-stat-caption {
+        margin: 0.5rem 0 0;
+        color: #97a7c2;
+        font-size: 0.86rem;
+        line-height: 1.45;
+    }
+    .pq-action-card {
+        padding: 0.95rem 1rem;
+        margin-bottom: 0.55rem;
+        min-height: 140px;
+    }
+    .pq-action-title {
+        margin: 0;
+        color: #f8fafc;
+        font-size: 0.96rem;
+        font-weight: 800;
+    }
+    .pq-action-copy {
+        margin: 0.45rem 0 0;
+        color: #95a4bc;
+        font-size: 0.88rem;
+        line-height: 1.55;
+    }
+    .pq-sidebar-brand {
+        margin-bottom: 0.85rem;
+        padding-top: 0.1rem;
+    }
+    .pq-sidebar-brand h2 {
+        margin: 0;
+        color: #f8fafc;
+        font-size: 1.2rem;
+        letter-spacing: -0.03em;
+    }
+    .pq-sidebar-brand p {
+        margin: 0.35rem 0 0;
+        color: #94a3b8;
+        line-height: 1.5;
+        font-size: 0.88rem;
+    }
+    .pq-sidebar-panel {
+        padding: 0.9rem 0.95rem;
+        margin: 0.85rem 0;
+    }
+    .pq-sidebar-stat {
+        margin: 0;
+        color: #f8fafc;
+        font-size: 1rem;
+        font-weight: 800;
+    }
+    .pq-sidebar-copy {
+        margin: 0.35rem 0 0;
+        color: #94a3b8;
+        font-size: 0.82rem;
+        line-height: 1.5;
+    }
+    .stButton > button {
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        min-height: 2.6rem;
+        border: 1px solid rgba(88, 166, 255, 0.22) !important;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1f6feb, #4aa3ff) !important;
+        border: none !important;
+        color: white !important;
+        box-shadow: 0 16px 34px rgba(31, 111, 235, 0.28);
+    }
+    .stButton > button[kind="secondary"] {
+        background: rgba(15, 23, 42, 0.88) !important;
+        color: #dbeafe !important;
+    }
+    .stTextInput > div > div > input,
+    .stNumberInput input,
+    .stSelectbox > div > div,
+    .stTextArea textarea {
+        border-radius: 12px !important;
+        border: 1px solid rgba(148, 163, 184, 0.16) !important;
+        background: rgba(15, 23, 42, 0.78) !important;
+    }
+    @media (max-width: 900px) {
+        .pq-shell-hero h1 {
+            font-size: 1.7rem;
+        }
+        .pq-shell-status-grid {
+            grid-template-columns: 1fr;
+        }
+        .pq-page-headline {
+            flex-direction: column;
+        }
+        .pq-stat-tile, .pq-action-card {
+            min-height: auto;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -3543,76 +4212,39 @@ _init_session()
 
 
 def _render_deploy_strip() -> None:
-    """Always-visible deploy fingerprint so Cloud vs local is obvious."""
+    """Always-visible workspace status so the deployed build feels intentional."""
     st.markdown(
         f"""
-        <div style="background:#0d2818;border:1px solid #3fb950;border-radius:6px;
-        padding:0.4rem 0.7rem;margin-bottom:0.45rem;font-size:0.76rem;color:#8b949e;">
-        <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
-        &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
-        <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
-        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        <div class="pq-deploy-strip">
+            <span class="pq-deploy-pill">LIVE WORKSPACE</span>
+            <span>Build {html.escape(APP_BUILD)}</span>
+            <span>Polymarket + Kalshi + ledger flow in one place</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-_render_deploy_strip()
-
-st.markdown(
-    f"""
-    <div class="pq-topbar">
-        <span class="pq-topbar-brand">POLY-QUANT</span>
-        <span class="pq-topbar-meta">Polymarket · Kalshi ·
-        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-tool_l, tool_r = st.columns([3, 1])
-with tool_l:
-    render_global_search_bar()
-with tool_r:
-    render_odds_format_toggle()
-
-
 def main() -> None:
-    (
-        tab_plays,
-        tab_explore,
-        tab_audit,
-        tab_hype,
-        tab_arb,
-        tab_ledger,
-    ) = st.tabs(
-        [
-            "🔥 Value Plays",
-            "🔍 Explore",
-            "⚖️ Check Bet",
-            "📣 Sentiment",
-            "💰 Arbs",
-            "📒 Ledger",
-        ]
-    )
+    snapshot = _collect_dashboard_snapshot()
+    _render_sidebar(snapshot)
+    _render_deploy_strip()
+    _render_shell_header(snapshot)
 
-    with tab_plays:
+    page = st.session_state.get("app_nav", "Overview")
+    if page == "Overview":
+        render_overview_dashboard(snapshot)
+    elif page == "Value Plays":
         render_top_value_plays()
-
-    with tab_explore:
+    elif page == "Explore":
         render_explore_hub()
-
-    with tab_audit:
+    elif page == "Bet Check":
         render_audit_my_bet()
-
-    with tab_hype:
+    elif page == "Sentiment":
         render_hype_vs_reality()
-
-    with tab_arb:
+    elif page == "Arbitrage":
         render_risk_free_arbs()
-
-    with tab_ledger:
+    else:
         render_ledger()
 
 
