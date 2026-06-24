@@ -1928,6 +1928,85 @@ def _render_value_play_card(row: pd.Series, rank: int) -> None:
     )
 
 
+def _render_value_plays_dataframe(df: pd.DataFrame) -> None:
+    """Presentation-only terminal table for elite value plays."""
+    odds_fmt = get_odds_format()
+    implied_pct = (df["No Price"].astype(float) * 100.0).round(1)
+    true_prob = df["Model Win %"].astype(float).round(1)
+    quant_edge = df["Net EV Edge %"].astype(float).round(1)
+
+    table = pd.DataFrame(
+        {
+            "Rank": list(range(1, len(df) + 1)),
+            "Market": df["Question"].astype(str).values,
+            "Market Line": [
+                format_odds_display(float(p), odds_fmt) for p in df["No Price"]
+            ],
+            "Implied %": implied_pct.values,
+            "True Prob": true_prob.values,
+            "Quant Edge": [f"+{e:.1f}%" for e in quant_edge],
+            "NO ¢": df["Cost ¢"].astype(float).round(1).values,
+            "Volume": df["Volume"].astype(float).round(0).values,
+        }
+    )
+
+    row_h = 38
+    table_h = min(row_h * len(table) + row_h, 320)
+
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+        height=table_h,
+        column_config={
+            "Rank": st.column_config.NumberColumn(
+                "#",
+                width="small",
+                format="%d",
+            ),
+            "Market": st.column_config.TextColumn(
+                "Market",
+                width="large",
+                help="Polymarket contract — bet NO for the edge",
+            ),
+            "Market Line": st.column_config.TextColumn(
+                "Market Line",
+                width="medium",
+                help="Implied NO odds in your selected format",
+            ),
+            "Implied %": st.column_config.ProgressColumn(
+                "Implied",
+                format="%.1f%%",
+                min_value=0,
+                max_value=100,
+                width="medium",
+            ),
+            "True Prob": st.column_config.ProgressColumn(
+                "True Prob",
+                format="%.1f%%",
+                min_value=0,
+                max_value=100,
+                width="medium",
+            ),
+            "Quant Edge": st.column_config.TextColumn(
+                "Quant Edge",
+                width="small",
+                help="Net EV edge after platform fees",
+            ),
+            "NO ¢": st.column_config.NumberColumn(
+                "NO ¢",
+                format="%.1f",
+                width="small",
+            ),
+            "Volume": st.column_config.NumberColumn(
+                "Volume",
+                format="$%,.0f",
+                width="small",
+            ),
+        },
+    )
+
+
 def render_top_value_plays() -> None:
     st.markdown("### 🔥 Top Value Plays")
     st.caption(
@@ -1969,8 +2048,7 @@ def render_top_value_plays() -> None:
         return
 
     st.caption(f"{len(df)} elite anomal{'y' if len(df) == 1 else 'ies'} on slate")
-    for rank, (_, row) in enumerate(df.iterrows(), start=1):
-        _render_value_play_card(row, rank)
+    _render_value_plays_dataframe(df)
 
 
 def render_audit_my_bet() -> None:
