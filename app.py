@@ -9,13 +9,43 @@ Run with:
 
 from __future__ import annotations
 
+import base64
+import calendar
+import hashlib
+import hmac
 import html
 import json
+import os
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 import pandas as pd
 import requests
 import streamlit as st
+
+try:
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+
+    _CRYPTO_AVAILABLE = True
+except ImportError:
+    _CRYPTO_AVAILABLE = False
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
+# =============================================================================
+# ** DEVELOPER: Declare ALL API keys, secret passphrases, and private wallet
+# keys in a local, git-ignored `.env` file. NEVER commit secrets to git. **
+# Required variables:
+#   KALSHI_API_KEY_ID, KALSHI_PRIVATE_KEY
+#   POLYMARKET_API_KEY, POLYMARKET_API_SECRET, POLYMARKET_API_PASSPHRASE
+#   POLYMARKET_WALLET_ADDRESS (optional, for trade filtering)
+# =============================================================================
 
 # --------------------------------------------------------------------------- #
 # Backend — quantitative engine (do not alter logic)
@@ -251,6 +281,257 @@ def _filter_value_plays(raw_df: pd.DataFrame) -> pd.DataFrame:
     df = raw_df.dropna(subset=["No Price"]).copy()
     df = df[df["Volume"] >= MIN_VOLUME].copy()
     return df.sort_values("No Price", ascending=True).reset_index(drop=True)
+
+
+# --------------------------------------------------------------------------- #
+# Ledger ingestion — authenticated fills (Phase 3, additive only)
+# --------------------------------------------------------------------------- #
+
+KALSHI_API_BASE = os.getenv("KALSHI_API_BASE", "https://api.elections.kalshi.com")
+POLYMARKET_CLOB_URL = os.getenv("POLYMARKET_CLOB_URL", "https://clob.polymarket.com")
+LEDGER_CACHE_TTL = 120
+DEFAULT_ARB_STAKE = 100.0
+
+LEDGER_COLUMNS = [
+    "Date",
+    "Platform Badge",
+    "Event Name",
+    "Position Taken",
+    "Stake $",
+    "Price Paid ¢",
+    "Status",
+    "Net Return $",
+    "_timestamp",
+    "_status_raw",
+]
+
+
+def _ledger_credentials() -> dict[str, bool]:
+    return {
+        "kalshi": bool(os.getenv("KALSHI_API_KEY_ID") and os.getenv("KALSHI_PRIVATE_KEY")),
+        "polymarket": bool(
+            os.getenv("POLYMARKET_API_KEY")
+            and os.getenv("POLYMARKET_API_SECRET")
+            and os.getenv("POLYMARKET_API_PASSPHRASE")
+        ),
+    }
+
+
+def _kalshi_auth_headers(method: str, path: str) -> dict[str, str]:
+    key_id = os.getenv("KALSHI_API_KEY_ID", "")
+    pem = os.getenv("KALSHI_PRIVATE_KEY", "")
+    if not key_id or not pem or not _CRYPTO_AVAILABLE:
+        return {}
+    pem = pem.replace("\\n", "\n")
+    timestamp = str(int(datetime.now(timezone.utc).timestamp() * 1000))
+    sign_path = path.split("?")[0]
+    message = f"{timestamp}{method.upper()}{sign_path}".encode("utf-8")
+    try:
+        private_key = serialization.load_pem_private_key(pem.encode("utf-8"), password=None)
+        signature = private_key.sign(
+            message,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.DIGEST_LENGTH,
+            ),
+            hashes.SHA256(),
+        )
+    except Exception:
+        return {}
+    return {
+        "KALSHI-ACCESS-KEY": key_id,
+        "KALSHI-ACCESS-TIMESTAMP": timestamp,
+        "KALSHI-ACCESS-SIGNATURE": base64.b64encode(signature).decode("utf-8"),
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+
+def _poly_clob_auth_headers(method: str, request_path: str, body: str = "") -> dict[str, str]:
+    api_key = os.getenv("POLYMARKET_API_KEY", "")
+    api_secret = os.getenv("POLYMARKET_API_SECRET", "")
+    api_passphrase = os.getenv("POLYMARKET_API_PASSPHRASE", "")
+    if not all([api_key, api_secret, api_passphrase]):
+        return {}
+    timestamp = str(int(datetime.now(timezone.utc).timestamp()))
+    message = timestamp + method.upper() + request_path + body
+    try:
+        hmac_key = base64.b64decode(api_secret)
+        signature = hmac.new(hmac_key, message.encode("utf-8"), hashlib.sha256).digest()
+    except Exception:
+        return {}
+    headers = {
+        "POLY_API_KEY": api_key,
+        "POLY_PASSPHRASE": api_passphrase,
+        "POLY_TIMESTAMP": timestamp,
+        "POLY_SIGNATURE": base64.b64encode(signature).decode("utf-8"),
+        "Accept": "application/json",
+    }
+    wallet = os.getenv("POLYMARKET_WALLET_ADDRESS", "")
+    if wallet:
+        headers["POLY_ADDRESS"] = wallet
+    return headers
+
+
+def _empty_ledger() -> pd.DataFrame:
+    return pd.DataFrame(columns=LEDGER_COLUMNS)
+
+
+def _normalize_kalshi_fill(fill: dict[str, Any]) -> dict[str, Any]:
+    ts_raw = fill.get("created_time") or fill.get("ts") or fill.get("created_ts")
+    ts = pd.to_datetime(ts_raw, utc=True, errors="coerce")
+    price = _coerce_float(fill.get("yes_price_dollars") or fill.get("price")) or 0.0
+    if price > 1.0:
+        price = price / 100.0
+    count = _coerce_float(fill.get("count") or fill.get("quantity") or fill.get("count_fp")) or 0.0
+    side = str(fill.get("side") or fill.get("action") or "YES").upper()
+    stake = price * count if count else _coerce_float(fill.get("cost_dollars")) or 0.0
+    ticker = fill.get("ticker") or fill.get("market_ticker") or "Kalshi Market"
+    status = "OPEN"
+    result = str(fill.get("result") or "").lower()
+    if result in ("yes", "no"):
+        won = (side == "YES" and result == "yes") or (side == "NO" and result == "no")
+        status = "WON" if won else "LOST"
+    net = _coerce_float(fill.get("pnl_dollars"))
+    if net is None and status == "WON":
+        net = count - stake
+    elif net is None and status == "LOST":
+        net = -stake
+    elif net is None:
+        net = 0.0
+    return {
+        "Date": ts.strftime("%Y-%m-%d") if pd.notna(ts) else "—",
+        "Platform Badge": "K",
+        "Event Name": ticker,
+        "Position Taken": side,
+        "Stake $": round(float(stake), 2),
+        "Price Paid ¢": round(float(price) * 100.0, 2),
+        "Status": status,
+        "Net Return $": round(float(net), 2),
+        "_timestamp": ts,
+        "_status_raw": status,
+    }
+
+
+def _normalize_polymarket_trade(trade: dict[str, Any]) -> dict[str, Any]:
+    ts = pd.to_datetime(trade.get("match_time") or trade.get("timestamp"), utc=True, errors="coerce")
+    price = _coerce_float(trade.get("price")) or 0.0
+    size = _coerce_float(trade.get("size") or trade.get("amount")) or 0.0
+    side = str(trade.get("side") or trade.get("outcome") or "BUY").upper()
+    stake = price * size
+    market = trade.get("market") or trade.get("asset_id") or trade.get("title") or "Polymarket Trade"
+    status = str(trade.get("status") or "OPEN").upper()
+    if status not in ("OPEN", "WON", "LOST"):
+        status = "OPEN"
+    net = _coerce_float(trade.get("realized_pnl") or trade.get("pnl"))
+    if net is None:
+        net = 0.0
+    return {
+        "Date": ts.strftime("%Y-%m-%d") if pd.notna(ts) else "—",
+        "Platform Badge": "P",
+        "Event Name": str(market)[:120],
+        "Position Taken": side,
+        "Stake $": round(float(stake), 2),
+        "Price Paid ¢": round(float(price) * 100.0, 2),
+        "Status": status,
+        "Net Return $": round(float(net), 2),
+        "_timestamp": ts,
+        "_status_raw": status,
+    }
+
+
+def _fetch_kalshi_fills_raw() -> list[dict[str, Any]]:
+    path = "/trade-api/v2/portfolio/fills"
+    headers = _kalshi_auth_headers("GET", path)
+    if not headers:
+        return []
+    url = f"{KALSHI_API_BASE.rstrip('/')}{path}"
+    response = requests.get(url, headers=headers, params={"limit": 200}, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    payload = response.json()
+    return payload.get("fills") or payload.get("data") or []
+
+
+def _fetch_polymarket_trades_raw() -> list[dict[str, Any]]:
+    path = "/data/trades"
+    headers = _poly_clob_auth_headers("GET", path)
+    if not headers:
+        return []
+    url = f"{POLYMARKET_CLOB_URL.rstrip('/')}{path}"
+    response = requests.get(url, headers=headers, params={"limit": 200}, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    payload = response.json()
+    if isinstance(payload, list):
+        return payload
+    return payload.get("trades") or payload.get("data") or []
+
+
+@st.cache_data(ttl=LEDGER_CACHE_TTL, show_spinner="Syncing filled orders…")
+def fetch_unified_ledger() -> pd.DataFrame:
+    """Ingest Kalshi + Polymarket fills into one normalized ledger DataFrame."""
+    rows: list[dict[str, Any]] = []
+    creds = _ledger_credentials()
+
+    if creds["kalshi"]:
+        try:
+            for fill in _fetch_kalshi_fills_raw():
+                if isinstance(fill, dict):
+                    rows.append(_normalize_kalshi_fill(fill))
+        except Exception:
+            pass
+
+    if creds["polymarket"]:
+        try:
+            for trade in _fetch_polymarket_trades_raw():
+                if isinstance(trade, dict):
+                    rows.append(_normalize_polymarket_trade(trade))
+        except Exception:
+            pass
+
+    if not rows:
+        return _empty_ledger()
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values("_timestamp", ascending=False, na_position="last").reset_index(drop=True)
+    return df
+
+
+def _ledger_daily_pnl(ledger: pd.DataFrame) -> dict[date, float]:
+    if ledger.empty:
+        return {}
+    settled = ledger[ledger["Status"].isin(["WON", "LOST"])].copy()
+    if settled.empty:
+        return {}
+    settled["_day"] = pd.to_datetime(settled["Date"], errors="coerce").dt.date
+    grouped = settled.groupby("_day")["Net Return $"].sum()
+    return {k: float(v) for k, v in grouped.items() if pd.notna(k)}
+
+
+def _ledger_kpis(ledger: pd.DataFrame) -> tuple[float, str, float]:
+    today = datetime.now(timezone.utc).date()
+    month_start = today.replace(day=1)
+
+    daily_net = 0.0
+    if not ledger.empty:
+        today_rows = ledger[
+            (ledger["Date"] == today.isoformat()) & ledger["Status"].isin(["WON", "LOST"])
+        ]
+        daily_net = float(today_rows["Net Return $"].sum()) if not today_rows.empty else 0.0
+
+    month_rows = ledger[ledger["Status"].isin(["WON", "LOST"])].copy()
+    if not month_rows.empty:
+        month_rows["_d"] = pd.to_datetime(month_rows["Date"], errors="coerce").dt.date
+        month_rows = month_rows[month_rows["_d"] >= month_start]
+        wins = int((month_rows["Net Return $"] > 0).sum())
+        losses = int((month_rows["Net Return $"] <= 0).sum())
+        wl = f"{wins}W – {losses}L"
+    else:
+        wl = "0W – 0L"
+
+    open_rows = ledger[ledger["Status"] == "OPEN"]
+    capital_at_risk = float(open_rows["Stake $"].sum()) if not open_rows.empty else 0.0
+    return daily_net, wl, capital_at_risk
+
 
 
 # --------------------------------------------------------------------------- #
@@ -1021,98 +1302,220 @@ def _inject_global_css() -> None:
             .pq-nav-scroll .stPills {
                 overflow-x: auto;
             }
+
+            /* Phase 1 — tactile value cards */
+            .pq-value-card {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 14px;
+                padding: 1rem 1.1rem;
+                margin-bottom: 0.65rem;
+            }
+            .pq-value-card-hot {
+                border-color: #238636;
+                box-shadow: 0 0 18px rgba(63,185,80,0.15);
+            }
+            .pq-event-name {
+                font-size: 0.95rem;
+                font-weight: 800;
+                color: #f0f2f5;
+                margin: 0 0 0.65rem;
+                line-height: 1.35;
+            }
+            .pq-cta-pill {
+                display: inline-block;
+                background: linear-gradient(90deg, #1f6feb, #388bfd);
+                color: #fff;
+                font-weight: 800;
+                font-size: 0.82rem;
+                padding: 0.45rem 0.85rem;
+                border-radius: 999px;
+                margin-bottom: 0.55rem;
+                letter-spacing: 0.02em;
+            }
+            .pq-ev-badge {
+                display: inline-block;
+                background: rgba(63,185,80,0.25);
+                color: #3fb950;
+                border: 1px solid #3fb950;
+                font-weight: 800;
+                font-size: 0.8rem;
+                padding: 0.3rem 0.65rem;
+                border-radius: 8px;
+            }
+            .pq-metric-row {
+                display: flex;
+                gap: 1.25rem;
+                flex-wrap: wrap;
+                font-size: 0.78rem;
+                color: #8b949e;
+            }
+            .pq-metric-row strong { color: #f0f2f5; }
+
+            /* Full-width audit banner */
+            .pq-banner-play {
+                background: linear-gradient(90deg, rgba(63,185,80,0.35), rgba(35,134,54,0.15));
+                border: 2px solid #3fb950;
+                border-radius: 12px;
+                padding: 1.4rem;
+                text-align: center;
+                font-size: 1.45rem;
+                font-weight: 900;
+                color: #3fb950;
+                margin-top: 1rem;
+                letter-spacing: 0.04em;
+            }
+            .pq-banner-pass {
+                background: rgba(88,28,28,0.35);
+                border: 2px solid #6e3630;
+                border-radius: 12px;
+                padding: 1.4rem;
+                text-align: center;
+                font-size: 1.35rem;
+                font-weight: 900;
+                color: #8b949e;
+                margin-top: 1rem;
+            }
+
+            /* Hype vs Reality */
+            .pq-hype-col {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 12px;
+                padding: 1rem;
+                text-align: center;
+            }
+            .pq-hype-val {
+                font-size: 2rem;
+                font-weight: 900;
+                color: #f0f2f5;
+            }
+            .pq-bubble-badge {
+                background: linear-gradient(90deg, rgba(255,140,0,0.35), rgba(255,69,0,0.2));
+                border: 2px solid #ff8c00;
+                color: #ffb347;
+                font-weight: 900;
+                font-size: 0.95rem;
+                padding: 1rem 1.1rem;
+                border-radius: 12px;
+                text-align: center;
+                margin-top: 0.85rem;
+                box-shadow: 0 0 20px rgba(255,140,0,0.2);
+            }
+
+            /* Arb recipe */
+            .pq-recipe {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 14px;
+                padding: 1rem 1.15rem;
+                margin: 0.5rem 0;
+            }
+            .pq-recipe-step {
+                font-size: 0.92rem;
+                color: #c9d1d9;
+                margin: 0.45rem 0;
+                line-height: 1.5;
+            }
+            .pq-recipe-step strong { color: #58a6ff; }
+            .pq-lock-banner {
+                background: linear-gradient(90deg, rgba(63,185,80,0.3), rgba(35,134,54,0.12));
+                border: 2px solid #3fb950;
+                border-radius: 12px;
+                padding: 1rem;
+                text-align: center;
+                font-size: 1.1rem;
+                font-weight: 800;
+                color: #3fb950;
+                margin-top: 0.75rem;
+            }
+
+            /* Ledger calendar flexbox */
+            .pq-calendar-wrap { margin: 0.75rem 0 1rem; }
+            .pq-cal-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .pq-cal-head {
+                flex: 1 0 calc(14.28% - 4px);
+                min-width: 0;
+                text-align: center;
+                font-size: 0.65rem;
+                font-weight: 700;
+                color: #8b949e;
+                padding: 0.25rem 0;
+            }
+            .pq-cal-cell {
+                flex: 1 0 calc(14.28% - 4px);
+                min-width: 0;
+                aspect-ratio: 1;
+                border-radius: 8px;
+                border: 1px solid #21262d;
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .pq-cal-day {
+                position: absolute;
+                top: 4px;
+                left: 6px;
+                font-size: 0.62rem;
+                color: #8b949e;
+                font-weight: 600;
+            }
+            .pq-cal-neutral { background: #161b22; }
+            .pq-cal-win { background: rgba(63,185,80,0.22); border-color: rgba(63,185,80,0.4); }
+            .pq-cal-loss { background: rgba(248,81,73,0.18); border-color: rgba(248,81,73,0.35); }
+            .pq-cal-pnl { font-size: 0.72rem; font-weight: 800; }
+            .pq-cal-pnl.pos { color: #3fb950; }
+            .pq-cal-pnl.neg { color: #f85149; }
+            .pq-cal-dash { color: #484f58; font-size: 0.85rem; }
+
+            .block-container { max-width: 1400px; }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def _build_display_grid(df: pd.DataFrame, odds_fmt: str) -> pd.DataFrame:
-    """Map backend rows → plain-English scannable columns (presentation only)."""
-    rows: list[dict[str, Any]] = []
-    for _, r in df.iterrows():
-        no_p = float(r["No Price"])
-        in_zone = _in_strike_zone(no_p)
-        model_win = DISPLAY_MODEL_WIN_PCT if in_zone else no_p * 100.0
-        _, ev_edge = _calc_ev_dollars(model_win, 100.0, no_p * 100.0)
-
-        if in_zone:
-            play = "🟢 Easy Money Compounding Play — BUY NO"
-        else:
-            play = f"BUY NO @ {format_odds_display(no_p, odds_fmt)}"
-
-        rows.append(
-            {
-                "Matchup / Market": r["Question"],
-                "The Recommended Play": play,
-                "Implied Odds": format_odds_display(no_p, odds_fmt),
-                "Our Model Win Chance %": round(model_win, 1),
-                "EV Edge %": round(ev_edge, 2),
-                "_in_zone": in_zone,
-            }
-        )
-    return pd.DataFrame(rows)
-
-
-def _highlight_compound_plays(row: pd.Series) -> list[str]:
-    style = (
-        "background-color: rgba(63, 185, 80, 0.14); border-left: 3px solid #3fb950;"
-        if row.get("_in_zone")
-        else ""
-    )
-    return [style] * len(row)
-
-
-def _render_compound_cards(df: pd.DataFrame, odds_fmt: str) -> None:
-    compound = df[df["No Price"].between(STRIKE_LO, STRIKE_HI)]
-    if compound.empty:
-        return
-
-    st.markdown("#### ⭐ Flagged Compounding Plays")
-    for _, r in compound.head(6).iterrows():
-        no_p = float(r["No Price"])
-        _, ev_edge = _calc_ev_dollars(DISPLAY_MODEL_WIN_PCT, 100.0, no_p * 100.0)
-        q = html.escape(str(r["Question"]))
-        st.markdown(
-            f"""
-            <div class="pq-card pq-card-compound">
-                <p class="pq-card-title">{q}</p>
-                <div class="pq-card-row">
-                    <span class="pq-badge pq-badge-green">Easy Money Compounding Play</span>
-                    <span class="pq-badge pq-badge-blue">NO {format_odds_display(no_p, odds_fmt)}</span>
-                    <span class="pq-stat">Odds <strong>{format_odds_display(no_p, odds_fmt)}</strong></span>
-                    <span class="pq-stat">Model <strong>{DISPLAY_MODEL_WIN_PCT:.1f}%</strong></span>
-                    <span class="pq-stat">Edge <strong>{ev_edge:+.2f}%</strong></span>
-                </div>
+def _render_value_play_card(row: pd.Series) -> None:
+    """Tactile standalone market card (presentation only)."""
+    no_p = float(row["No Price"])
+    in_zone = _in_strike_zone(no_p)
+    model_win = DISPLAY_MODEL_WIN_PCT if in_zone else no_p * 100.0
+    _, ev_edge = _calc_ev_dollars(model_win, 100.0, no_p * 100.0)
+    implied_pct = no_p * 100.0
+    card_cls = "pq-value-card pq-value-card-hot" if in_zone else "pq-value-card"
+    event = html.escape(str(row["Question"]))
+    st.markdown(
+        f"""
+        <div class="{card_cls}">
+            <p class="pq-event-name">{event}</p>
+            <div class="pq-cta-pill">BET NO AT ${no_p:.2f}</div>
+            <div class="pq-metric-row">
+                <span>Market Implied <strong>{implied_pct:.1f}%</strong></span>
+                <span>Model Win <strong>{model_win:.1f}%</strong></span>
+                <span class="pq-ev-badge">+{ev_edge:.1f}% EV</span>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_top_value_plays() -> None:
     st.markdown("### 🔥 Top Value Plays")
-    st.markdown(
-        '<p style="color:#8b949e;font-size:0.82rem;margin-top:-0.5rem;">'
-        "Live markets ranked by best NO prices. Green highlights = compounding opportunities."
-        "</p>",
-        unsafe_allow_html=True,
-    )
 
-    if st.button("↻ Refresh Markets", key="refresh_poly", use_container_width=False):
+    if st.button("↻ Refresh", key="refresh_poly"):
         fetch_polymarket_markets.clear()
         st.rerun()
 
     try:
         raw_df = fetch_polymarket_markets()
-    except requests.exceptions.RequestException:
-        st.error("Unable to load market data right now. Try refreshing in a moment.")
-        return
-    except (ValueError, json.JSONDecodeError):
-        st.error("Market data came back in an unexpected format. Try again shortly.")
-        return
     except Exception:
-        st.error("Something went wrong loading markets. Please refresh.")
+        st.error("Markets unavailable — try refreshing.")
         return
 
     if raw_df.empty:
@@ -1121,240 +1524,119 @@ def render_top_value_plays() -> None:
 
     df = _filter_value_plays(raw_df)
     if df.empty:
-        st.warning("No qualifying plays right now. Check back when more volume hits the board.")
+        st.warning("No qualifying plays right now.")
         return
 
-    market_search = st.text_input(
-        "Filter markets",
+    search = st.text_input(
+        "Search",
         key="value_plays_search",
-        placeholder="Search by keyword…",
+        placeholder="🔍 Search events, teams, players…",
         label_visibility="collapsed",
     )
-    if not market_search.strip():
-        market_search = st.session_state.get("global_search_query", "")
-    if market_search.strip():
-        df = df[df["Question"].str.contains(market_search.strip(), case=False, na=False)].copy()
+    if not search.strip():
+        search = st.session_state.get("global_search_query", "")
+    if search.strip():
+        df = df[df["Question"].str.contains(search.strip(), case=False, na=False)].copy()
         if df.empty:
-            st.info("No markets match your search.")
+            st.info("No matches.")
             return
 
-    compound_count = int(df["No Price"].between(STRIKE_LO, STRIKE_HI).sum())
-    odds_fmt = get_odds_format()
-
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Live Markets", f"{len(df)}")
-    k2.metric("Compounding Plays", f"{compound_count}")
-    k3.metric("Best NO Price", format_odds_display(float(df["No Price"].iloc[0]), odds_fmt))
-
-    _render_compound_cards(df, odds_fmt)
-
-    display_df = _build_display_grid(df, odds_fmt)
-    show_cols = [
-        "Matchup / Market",
-        "The Recommended Play",
-        "Implied Odds",
-        "Our Model Win Chance %",
-        "EV Edge %",
-    ]
-    styled = (
-        display_df[show_cols + ["_in_zone"]]
-        .style.apply(_highlight_compound_plays, axis=1)
-        .hide(subset=["_in_zone"], axis="columns")
-        .format({"Our Model Win Chance %": "{:.1f}%", "EV Edge %": "{:+.2f}%"})
-    )
-
-    st.dataframe(
-        styled,
-        use_container_width=True,
-        hide_index=True,
-        height=min(520, 48 + len(display_df) * 38),
-        column_config={
-            "Matchup / Market": st.column_config.TextColumn(
-                "Matchup / Market", width=COL_QUESTION
-            ),
-            "The Recommended Play": st.column_config.TextColumn(
-                "The Recommended Play", width=180
-            ),
-            "Implied Odds": st.column_config.TextColumn("Implied Odds", width=COL_PRICE),
-            "Our Model Win Chance %": st.column_config.NumberColumn(
-                "Our Model Win Chance %", width=COL_PRICE, format="%.1f%%"
-            ),
-            "EV Edge %": st.column_config.NumberColumn(
-                "EV Edge %", width=COL_PRICE, format="%+.2f%%"
-            ),
-        },
-    )
+    st.caption(f"{len(df)} active opportunities")
+    for _, row in df.head(24).iterrows():
+        _render_value_play_card(row)
 
 
 def render_audit_my_bet() -> None:
     st.markdown("### ⚖️ Audit My Bet")
-    st.markdown(
-        '<p style="color:#8b949e;font-size:0.82rem;margin-top:-0.5rem;">'
-        "Plug in your numbers — we'll tell you if the bet is worth taking."
-        "</p>",
-        unsafe_allow_html=True,
-    )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
-
-    r1, r2 = st.columns(2)
-    with r1:
+    c1, c2, c3 = st.columns(3)
+    with c1:
         true_win_prob = st.number_input(
-            "Our Model's Win Probability (%)",
+            "Model True Win %",
             min_value=0.0,
             max_value=100.0,
             value=77.5,
             step=0.5,
         )
-    with r2:
+    with c2:
         stake = st.number_input(
-            "Your Planned Stake ($)",
+            "Stake ($)",
             min_value=0.0,
             value=100.0,
             step=10.0,
         )
-
-    st.markdown('<p class="pq-section-label">Offered Odds Format</p>', unsafe_allow_html=True)
-    offered_fmt = st.segmented_control(
-        "Offered Odds Format",
-        options=list(ODDS_FORMATS),
-        default="Cents",
-        key="audit_odds_fmt",
-        label_visibility="collapsed",
-    )
-
-    if offered_fmt == "American":
-        odds_raw = st.text_input(
-            "Offered Bookmaker Odds",
-            value="+150",
-            placeholder="e.g. +150, -223, 150",
-            help="Enter American odds with or without the + sign.",
-        )
-        share_price = parse_offered_odds(odds_raw, "american")
-        if share_price is None:
-            st.error("Enter valid American odds (e.g. +150 or -223).")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-    else:
-        default_val = 50.0
-        label = "Offered Price (¢)" if offered_fmt == "Cents" else "Implied Win Probability (%)"
-        odds_raw = st.number_input(
-            label,
+    with c3:
+        share_price = st.number_input(
+            "Offered Share Price (¢)",
             min_value=0.01,
             max_value=99.99,
-            value=default_val,
-            step=0.5,
+            value=50.0,
+            step=1.0,
         )
-        share_price = parse_offered_odds(odds_raw, offered_fmt.lower())
-        if share_price is None:
-            st.error("Enter a valid price between 0 and 100.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-
     st.markdown("</div>", unsafe_allow_html=True)
 
     ev_dollars, ev_yield_pct = _calc_ev_dollars(true_win_prob, stake, share_price)
     ev_ok = ev_yield_pct >= EV_THRESHOLD
     prob_ok = true_win_prob >= WIN_PROB_THRESHOLD
-    odds_display = format_odds_display(share_price / 100.0, offered_fmt.lower())
 
     if ev_ok and prob_ok:
         st.markdown(
             f"""
-            <div class="pq-verdict-play">
-                <h2>🟢 GREEN LIGHT — PLAYABLE EDGE</h2>
-                <p>Projected return on a <strong>${stake:,.2f}</strong> stake:
-                <strong>${ev_dollars:+,.2f}</strong> expected value
-                (<strong>{ev_yield_pct:+.2f}%</strong> edge).</p>
-                <p style="margin-top:0.5rem;">Plant your limit order at
-                <strong>{odds_display}</strong>.</p>
+            <div class="pq-banner-play">
+                PLAYABLE (GREEN LIGHT)<br>
+                <span style="font-size:0.85rem;font-weight:600;color:#c9d1d9;">
+                Projected ${ev_dollars:+,.2f} on ${stake:,.2f} stake · {ev_yield_pct:+.2f}% edge
+                </span>
             </div>
             """,
             unsafe_allow_html=True,
         )
     else:
-        reasons: list[str] = []
-        if not ev_ok:
-            reasons.append(f"Edge is only {ev_yield_pct:+.2f}% — need at least {EV_THRESHOLD:.1f}%.")
-        if not prob_ok:
-            reasons.append(
-                f"Win probability is {true_win_prob:.1f}% — need at least {WIN_PROB_THRESHOLD:.0f}%."
-            )
-        reason_html = " ".join(reasons)
         st.markdown(
-            f"""
-            <div class="pq-verdict-pass">
-                <h2>🔴 HARD PASS — NEGATIVE ROI TRAP</h2>
-                <p>{html.escape(reason_html)}</p>
-            </div>
-            """,
+            '<div class="pq-banner-pass">PASS</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def render_hype_vs_reality() -> None:
+    st.markdown("### 📣 Hype vs. Reality")
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown('<div class="pq-hype-col">', unsafe_allow_html=True)
+        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0;">Social Sentiment %</p>', unsafe_allow_html=True)
+        sentiment = st.slider("Social Sentiment", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_sent")
+        st.markdown(f'<p class="pq-hype-val">{sentiment:.0f}%</p>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with right:
+        st.markdown('<div class="pq-hype-col">', unsafe_allow_html=True)
+        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0;">True Quantitative Win %</p>', unsafe_allow_html=True)
+        implied_prob = st.slider("True Win", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_real")
+        st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    delta = sentiment - implied_prob
+    if delta >= DIVERGENCE_TRIGGER:
+        st.markdown(
+            '<div class="pq-bubble-badge">NARRATIVE BUBBLE — FADE THE PUBLIC</div>',
+            unsafe_allow_html=True,
+        )
+    elif delta <= -DIVERGENCE_TRIGGER:
+        st.markdown(
+            '<div class="pq-card"><span class="pq-badge pq-badge-blue">Undervalued YES — crowd too bearish</span></div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="pq-card"><span class="pq-badge pq-badge-grey">Aligned — no narrative edge</span></div>',
             unsafe_allow_html=True,
         )
 
 
 def render_trap_detector() -> None:
-    st.markdown("### 🚨 Trap Detector")
-    st.markdown(
-        '<p style="color:#8b949e;font-size:0.82rem;margin-top:-0.5rem;">'
-        "Compare what the crowd thinks vs. what the math says."
-        "</p>",
-        unsafe_allow_html=True,
-    )
-
-    s1, s2 = st.columns(2)
-    with s1:
-        sentiment = st.slider(
-            "Public Forum Hype (Reddit / Socials)",
-            0.0, 100.0, 50.0, 0.5,
-        )
-    with s2:
-        implied_prob = st.slider(
-            "Actual Mathematical Probability",
-            0.0, 100.0, 50.0, 0.5,
-        )
-
-    delta = sentiment - implied_prob
-
-    d1, d2, d3 = st.columns(3)
-    d1.metric("Public Hype", f"{sentiment:.0f}")
-    d2.metric("Real Probability", f"{implied_prob:.0f}%")
-    d3.metric("Gap", f"{delta:+.0f} pts")
-
-    if delta >= DIVERGENCE_TRIGGER:
-        st.markdown(
-            """
-            <div class="pq-trap-banner">
-                <h3>⚠️ NARRATIVE BUBBLE DETECTED</h3>
-                <p>The public is wildly overvaluing this outcome. Fade the noise and
-                look for Asymmetric NO value.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    elif delta <= -DIVERGENCE_TRIGGER:
-        st.markdown(
-            """
-            <div class="pq-card" style="border-color:#58a6ff;">
-                <span class="pq-badge pq-badge-blue">Undervalued YES Opportunity</span>
-                <p style="margin:0.5rem 0 0;color:#c9d1d9;font-size:0.88rem;">
-                    The crowd is too bearish relative to the math. There may be value on the YES side.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            """
-            <div class="pq-card">
-                <span class="pq-badge pq-badge-grey">No Trap Detected</span>
-                <p style="margin:0.5rem 0 0;color:#8b949e;font-size:0.88rem;">
-                    Public sentiment and mathematical probability are aligned. No action needed.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    """Alias for legacy reference."""
+    render_hype_vs_reality()
 
 
 def render_global_search_bar() -> str:
@@ -1588,13 +1870,40 @@ def _render_arb_split(
         )
 
 
+def _render_arb_recipe(
+    label: str,
+    step1: str,
+    step2: str,
+    net: float,
+    stake: float,
+    is_arb: bool,
+) -> None:
+    profit = net * stake
+    lock = ""
+    if is_arb:
+        lock = f'<div class="pq-lock-banner">Guaranteed Lock: +${profit:.2f} Profit</div>'
+    st.markdown(
+        f"""
+        <div class="pq-recipe">
+            <p style="font-weight:800;color:#f0f2f5;margin:0 0 0.5rem;">{html.escape(label)}</p>
+            <p class="pq-recipe-step"><strong>Step 1:</strong> {html.escape(step1)}</p>
+            <p class="pq-recipe-step"><strong>Step 2:</strong> {html.escape(step2)}</p>
+        </div>
+        {lock}
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_risk_free_arbs() -> None:
     st.markdown("### 💰 Risk-Free Arbs")
-    st.markdown(
-        '<p style="color:#8b949e;font-size:0.82rem;margin-top:-0.5rem;">'
-        "Compare the same event across two books. If combined cost is under $1, profit is locked."
-        "</p>",
-        unsafe_allow_html=True,
+
+    arb_stake = st.number_input(
+        "Stake per leg ($)",
+        min_value=1.0,
+        value=DEFAULT_ARB_STAKE,
+        step=10.0,
+        key="arb_stake",
     )
 
     if st.button("↻ Refresh Prices", key="refresh_arb"):
@@ -1610,25 +1919,18 @@ def render_risk_free_arbs() -> None:
         kalshi_df = pd.concat([kalshi_main, kalshi_props], ignore_index=True).drop_duplicates(
             subset=["ticker"]
         )
-    except requests.exceptions.RequestException:
-        st.error("Unable to reach one of the exchanges. Try again shortly.")
-        return
-    except (ValueError, json.JSONDecodeError):
-        st.error("Price data came back in an unexpected format.")
-        return
     except Exception:
-        st.error("Something went wrong loading exchange prices.")
+        st.error("Unable to load exchange prices.")
         return
 
     poly_priced = poly_df.dropna(subset=["Yes Price", "No Price"]).copy()
     kalshi_priced = _filter_kalshi_tradeable(kalshi_df)
 
     if poly_priced.empty or kalshi_priced.empty:
-        st.warning("Not enough priced contracts on both books right now.")
+        st.warning("Not enough priced contracts on both books.")
         return
 
     odds_fmt = get_odds_format()
-
     poly_options = {row["id"]: row["Question"] for _, row in poly_priced.iterrows()}
     poly_prices = {
         row["id"]: f"YES {format_odds_display(float(row['Yes Price']), odds_fmt)} · "
@@ -1642,20 +1944,12 @@ def render_risk_free_arbs() -> None:
         for _, row in kalshi_priced.iterrows()
     }
 
-    st.markdown("#### 1 · Choose Your Markets")
     poly_id = render_searchable_picker(
-        "Polymarket Event",
-        poly_options,
-        "poly_selected",
-        show_prices=poly_prices,
+        "Polymarket Event", poly_options, "poly_selected", show_prices=poly_prices,
     )
     kalshi_ticker = render_searchable_picker(
-        "Kalshi Event",
-        kalshi_options,
-        "kalshi_selected",
-        show_prices=kalshi_prices,
+        "Kalshi Event", kalshi_options, "kalshi_selected", show_prices=kalshi_prices,
     )
-
     if not poly_id or not kalshi_ticker:
         return
 
@@ -1668,30 +1962,132 @@ def render_risk_free_arbs() -> None:
     kalshi_no = float(kalshi_row["Kalshi NO Cost"])
 
     cost_a = poly_yes + kalshi_no
-    net_a, roi_a = _arb_opportunity(cost_a)
+    net_a, _ = _arb_opportunity(cost_a)
     cost_b = poly_no + kalshi_yes
-    net_b, roi_b = _arb_opportunity(cost_b)
+    net_b, _ = _arb_opportunity(cost_b)
 
-    st.markdown("#### 2 · Arb Strategies")
+    yes_c = poly_yes * 100.0
+    no_k_c = kalshi_no * 100.0
+    no_p_c = poly_no * 100.0
+    yes_k_c = kalshi_yes * 100.0
 
-    tab_a, tab_b = st.tabs(["Strategy A", "Strategy B"])
-    with tab_a:
-        _render_arb_split("YES", poly_yes, "NO", kalshi_no, net_a, roi_a, cost_a < 1.0, odds_fmt)
-    with tab_b:
-        _render_arb_split("NO", poly_no, "YES", kalshi_yes, net_b, roi_b, cost_b < 1.0, odds_fmt)
+    _render_arb_recipe(
+        "Recipe A",
+        f"Buy YES on Polymarket at {yes_c:.1f}¢ (${arb_stake:,.0f})",
+        f"Buy NO on Kalshi at {no_k_c:.1f}¢ (${arb_stake:,.0f})",
+        net_a,
+        arb_stake,
+        cost_a < 1.0,
+    )
+    _render_arb_recipe(
+        "Recipe B",
+        f"Buy NO on Polymarket at {no_p_c:.1f}¢ (${arb_stake:,.0f})",
+        f"Buy YES on Kalshi at {yes_k_c:.1f}¢ (${arb_stake:,.0f})",
+        net_b,
+        arb_stake,
+        cost_b < 1.0,
+    )
 
     if cost_a >= 1.0 and cost_b >= 1.0:
         st.markdown(
-            """
-            <div class="pq-card">
-                <span class="pq-badge pq-badge-grey">No Arb on This Pair</span>
-                <p style="margin:0.5rem 0 0;color:#8b949e;font-size:0.88rem;">
-                    Combined cost is $1.00 or more on both sides. Keep scanning other matchups.
-                </p>
-            </div>
-            """,
+            '<div class="pq-card"><span class="pq-badge pq-badge-grey">No lock available on this pair</span></div>',
             unsafe_allow_html=True,
         )
+
+
+def _build_calendar_html(daily_pnl: dict[date, float], year: int, month: int) -> str:
+    weekday, num_days = calendar.monthrange(year, month)
+    heads = "".join(f'<div class="pq-cal-head">{d}</div>' for d in ("M", "T", "W", "T", "F", "S", "S"))
+    cells: list[str] = []
+    for _ in range(weekday):
+        cells.append('<div class="pq-cal-cell pq-cal-neutral"></div>')
+    for day in range(1, num_days + 1):
+        d = date(year, month, day)
+        pnl = daily_pnl.get(d)
+        if pnl is None:
+            cells.append(
+                f'<div class="pq-cal-cell pq-cal-neutral"><span class="pq-cal-day">{day}</span>'
+                f'<span class="pq-cal-dash">-</span></div>'
+            )
+        elif pnl > 0:
+            cells.append(
+                f'<div class="pq-cal-cell pq-cal-win"><span class="pq-cal-day">{day}</span>'
+                f'<span class="pq-cal-pnl pos">+${pnl:.2f}</span></div>'
+            )
+        elif pnl < 0:
+            cells.append(
+                f'<div class="pq-cal-cell pq-cal-loss"><span class="pq-cal-day">{day}</span>'
+                f'<span class="pq-cal-pnl neg">-${abs(pnl):.2f}</span></div>'
+            )
+        else:
+            cells.append(
+                f'<div class="pq-cal-cell pq-cal-neutral"><span class="pq-cal-day">{day}</span>'
+                f'<span class="pq-cal-dash">-</span></div>'
+            )
+    grid = "".join(cells)
+    month_name = datetime(year, month, 1).strftime("%B %Y")
+    return (
+        f'<div class="pq-calendar-wrap"><p class="pq-section-label">{month_name}</p>'
+        f'<div class="pq-cal-grid">{heads}{grid}</div></div>'
+    )
+
+
+def render_ledger() -> None:
+    st.markdown("### 📒 The Ledger")
+
+    creds = _ledger_credentials()
+    if not creds["kalshi"] and not creds["polymarket"]:
+        st.warning(
+            "Connect your accounts: add API keys to a local `.env` file "
+            "(see developer comment at top of app.py). Ledger syncs once credentials are set."
+        )
+
+    if st.button("↻ Sync Fills", key="refresh_ledger"):
+        fetch_unified_ledger.clear()
+        st.rerun()
+
+    ledger = fetch_unified_ledger()
+    daily_net, wl_record, capital_at_risk = _ledger_kpis(ledger)
+
+    k1, k2, k3 = st.columns(3)
+    daily_cls = "pq-ev-badge" if daily_net >= 0 else "pq-badge-red"
+    daily_lbl = f"${daily_net:+,.2f}"
+    k1.markdown(
+        f'<div class="pq-card"><p class="pq-section-label">Daily Net Profit</p>'
+        f'<p style="font-size:1.4rem;font-weight:900;margin:0;"><span class="{daily_cls}">{daily_lbl}</span></p></div>',
+        unsafe_allow_html=True,
+    )
+    k2.metric("Monthly W/L Record", wl_record)
+    k3.metric("Total Capital at Risk", f"${capital_at_risk:,.2f}")
+
+    now = datetime.now(timezone.utc)
+    daily_pnl = _ledger_daily_pnl(ledger)
+    st.markdown(_build_calendar_html(daily_pnl, now.year, now.month), unsafe_allow_html=True)
+
+    if ledger.empty:
+        st.caption("No filled orders ingested yet.")
+        return
+
+    display = ledger[
+        ["Date", "Platform Badge", "Event Name", "Position Taken", "Stake $", "Price Paid ¢", "Status", "Net Return $"]
+    ].copy()
+
+    st.dataframe(
+        display,
+        use_container_width=True,
+        hide_index=True,
+        height=360,
+        column_config={
+            "Date": st.column_config.TextColumn("Date", width=90),
+            "Platform Badge": st.column_config.TextColumn("Platform", width=60),
+            "Event Name": st.column_config.TextColumn("Event Name", width=220),
+            "Position Taken": st.column_config.TextColumn("Position", width=80),
+            "Stake $": st.column_config.NumberColumn("Stake $", format="$%.2f"),
+            "Price Paid ¢": st.column_config.NumberColumn("Price ¢", format="%.1f"),
+            "Status": st.column_config.TextColumn("Status", width=70),
+            "Net Return $": st.column_config.NumberColumn("Net Return $", format="$%.2f"),
+        },
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1725,18 +2121,15 @@ with st.container():
 
 
 def main() -> None:
-    tab_explore, tab_value, tab_audit, tab_trap, tab_arb = st.tabs(
+    tab_value, tab_audit, tab_hype, tab_arb, tab_ledger = st.tabs(
         [
-            "🔍 Explore",
             "🔥 Top Value Plays",
             "⚖️ Audit My Bet",
-            "🚨 Trap Detector",
+            "📣 Hype vs. Reality",
             "💰 Risk-Free Arbs",
+            "📒 The Ledger",
         ]
     )
-
-    with tab_explore:
-        render_explore_hub()
 
     with tab_value:
         render_top_value_plays()
@@ -1744,11 +2137,14 @@ def main() -> None:
     with tab_audit:
         render_audit_my_bet()
 
-    with tab_trap:
-        render_trap_detector()
+    with tab_hype:
+        render_hype_vs_reality()
 
     with tab_arb:
         render_risk_free_arbs()
+
+    with tab_ledger:
+        render_ledger()
 
 
 if __name__ == "__main__":
