@@ -58,7 +58,7 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.0.0-perf-calendar"
+APP_BUILD = "3.0.1-arb-detail-breakdown"
 GIT_SHA = "6f2cc3c"
 
 MIN_VOLUME = 5_000.0
@@ -1796,6 +1796,41 @@ def _inject_global_css() -> None:
                 margin-top: 0.15rem;
             }
             .pq-metric-box .val.green { color: #3fb950; }
+            .pq-metric-box .val.red { color: #f85149; }
+            .pq-strategy-detail-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.45rem;
+                margin-top: 0.55rem;
+            }
+            @media (max-width: 720px) {
+                .pq-strategy-detail-grid { grid-template-columns: 1fr; }
+            }
+            .pq-detail-box {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 10px;
+                padding: 0.62rem 0.72rem;
+            }
+            .pq-detail-title {
+                font-size: 0.68rem;
+                font-weight: 800;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin: 0 0 0.38rem;
+            }
+            .pq-detail-line {
+                font-size: 0.79rem;
+                color: #c9d1d9;
+                margin: 0.2rem 0;
+            }
+            .pq-detail-line .num {
+                font-weight: 800;
+                color: #f0f2f5;
+            }
+            .pq-detail-line .num.green { color: #3fb950; }
+            .pq-detail-line .num.red { color: #f85149; }
 
             /* Kalshi auto-suggest */
             .pq-suggest-card {
@@ -2589,13 +2624,23 @@ def _render_arb_strategy_card(
     total_cost = poly_price + kalshi_price
     net, roi = _arb_opportunity(total_cost)
     is_arb = total_cost < 1.0
-    profit = net * stake
     total_outlay = stake * 2.0
 
     poly_odds = format_odds_display(poly_price, odds_fmt)
     kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
     poly_c = poly_price * 100.0
     kalshi_c = kalshi_price * 100.0
+    poly_shares_equal = (stake / poly_price) if poly_price > 0 else 0.0
+    kalshi_shares_equal = (stake / kalshi_price) if kalshi_price > 0 else 0.0
+    poly_win_net_equal = poly_shares_equal - total_outlay
+    kalshi_win_net_equal = kalshi_shares_equal - total_outlay
+    equal_floor = min(poly_win_net_equal, kalshi_win_net_equal)
+    equal_ceiling = max(poly_win_net_equal, kalshi_win_net_equal)
+
+    hedged_shares = (total_outlay / total_cost) if total_cost > 0 else 0.0
+    hedged_poly_stake = hedged_shares * poly_price
+    hedged_kalshi_stake = hedged_shares * kalshi_price
+    hedged_profit = hedged_shares - total_outlay
 
     card_cls = "pq-strategy-card pq-strategy-live" if is_arb else "pq-strategy-card"
     badge_cls = "pq-strategy-badge live" if is_arb else "pq-strategy-badge dead"
@@ -2604,9 +2649,15 @@ def _render_arb_strategy_card(
     lock_html = ""
     if is_arb:
         lock_html = (
-            f'<div class="pq-lock-banner">Guaranteed +${profit:.2f} profit on '
+            f'<div class="pq-lock-banner">Guaranteed +${hedged_profit:,.2f} profit on '
             f"${total_outlay:,.0f} total outlay</div>"
         )
+
+    floor_cls = "green" if equal_floor >= 0 else "red"
+    ceil_cls = "green" if equal_ceiling >= 0 else "red"
+    hedge_cls = "green" if hedged_profit >= 0 else "red"
+    poly_outcome_lbl = f"If {poly_side} resolves"
+    kalshi_outcome_lbl = f"If {kalshi_side} resolves"
 
     st.markdown(
         f"""
@@ -2621,6 +2672,7 @@ def _render_arb_strategy_card(
                     <div class="leg">Buy {html.escape(poly_side)}</div>
                     <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
                         {poly_c:.1f}¢ · {html.escape(poly_odds)} · ${stake:,.0f}
+                        = {poly_shares_equal:,.2f} shares
                     </div>
                 </div>
                 <div class="pq-split-side">
@@ -2628,6 +2680,7 @@ def _render_arb_strategy_card(
                     <div class="leg">Buy {html.escape(kalshi_side)}</div>
                     <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
                         {kalshi_c:.1f}¢ · {html.escape(kalshi_odds)} · ${stake:,.0f}
+                        = {kalshi_shares_equal:,.2f} shares
                     </div>
                 </div>
             </div>
@@ -2641,8 +2694,38 @@ def _render_arb_strategy_card(
                     <span class="val {'green' if is_arb else ''}">{roi:+.2f}%</span>
                 </div>
                 <div class="pq-metric-box">
+                    <span class="lbl">Hedged lock</span>
+                    <span class="val {hedge_cls}">${hedged_profit:+,.2f}</span>
+                </div>
+                <div class="pq-metric-box">
                     <span class="lbl">Net edge</span>
                     <span class="val {'green' if is_arb else ''}">${net:.4f}/$1</span>
+                </div>
+            </div>
+            <div class="pq-strategy-detail-grid">
+                <div class="pq-detail-box">
+                    <p class="pq-detail-title">Recommended hedge sizing (locks both outcomes)</p>
+                    <p class="pq-detail-line">Polymarket {html.escape(poly_side)} stake:
+                        <span class="num">${hedged_poly_stake:,.2f}</span></p>
+                    <p class="pq-detail-line">Kalshi {html.escape(kalshi_side)} stake:
+                        <span class="num">${hedged_kalshi_stake:,.2f}</span></p>
+                    <p class="pq-detail-line">Buy
+                        <span class="num">{hedged_shares:,.2f}</span> shares on each side</p>
+                    <p class="pq-detail-line">Guaranteed net:
+                        <span class="num {hedge_cls}">${hedged_profit:+,.2f}</span></p>
+                </div>
+                <div class="pq-detail-box">
+                    <p class="pq-detail-title">Equal ${stake:,.0f}/leg outcome range</p>
+                    <p class="pq-detail-line">{html.escape(poly_outcome_lbl)}:
+                        <span class="num {'green' if poly_win_net_equal >= 0 else 'red'}">
+                        ${poly_win_net_equal:+,.2f}</span></p>
+                    <p class="pq-detail-line">{html.escape(kalshi_outcome_lbl)}:
+                        <span class="num {'green' if kalshi_win_net_equal >= 0 else 'red'}">
+                        ${kalshi_win_net_equal:+,.2f}</span></p>
+                    <p class="pq-detail-line">Worst case:
+                        <span class="num {floor_cls}">${equal_floor:+,.2f}</span></p>
+                    <p class="pq-detail-line">Best case:
+                        <span class="num {ceil_cls}">${equal_ceiling:+,.2f}</span></p>
                 </div>
             </div>
         </div>
@@ -2719,7 +2802,10 @@ def _render_arb_recipe(
 
 def render_risk_free_arbs() -> None:
     st.markdown("### 💰 Risk-Free Arbs")
-    st.caption("Pick one market on each exchange · we compare YES/NO and show both arb recipes.")
+    st.caption(
+        "Pick one market on each exchange · we compare YES/NO, show exact hedge sizing,"
+        " and break down P/L by outcome."
+    )
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
