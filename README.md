@@ -20,3 +20,5 @@ streamlit run app.py
 ## Current build
 
 See `APP_BUILD` in `app.py` — displayed in the app header when deployed correctly.
+
+**v4.0** adds a Command Center dashboard, modern UI, per-tab guides, and live stat tiles across all views.
