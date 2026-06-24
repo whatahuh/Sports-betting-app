@@ -58,7 +58,8 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "2.2.0-arb-autosuggest"
+APP_BUILD = "3.0.0-perf-calendar"
+GIT_SHA = "e5bb736"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
@@ -3080,7 +3081,7 @@ def render_ledger() -> None:
 # --------------------------------------------------------------------------- #
 
 st.set_page_config(
-    page_title="POLY-QUANT",
+    page_title=f"POLY-QUANT · {APP_BUILD}",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -3126,6 +3127,25 @@ st.markdown("""
 
 _inject_global_css()
 _init_session()
+
+
+def _render_deploy_strip() -> None:
+    """Always-visible deploy fingerprint so Cloud vs local is obvious."""
+    st.markdown(
+        f"""
+        <div style="background:#0d2818;border:1px solid #3fb950;border-radius:6px;
+        padding:0.4rem 0.7rem;margin-bottom:0.45rem;font-size:0.76rem;color:#8b949e;">
+        <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
+        &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
+        <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
+        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+_render_deploy_strip()
 
 st.markdown(
     f"""
