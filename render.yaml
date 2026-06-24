@@ -1,0 +1,9 @@
+# Render Blueprint — deploy from a private GitHub repo, open URL on iOS Safari.
+# Dashboard → New → Blueprint → connect repo → select this file.
+services:
+  - type: web
+    name: poly-quant-v1
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /_stcore/health
