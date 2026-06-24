@@ -1489,6 +1489,145 @@ def _inject_global_css() -> None:
                 margin-top: 0.75rem;
             }
 
+            /* Cross-book arb comparison */
+            .pq-arb-compare {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 14px;
+                padding: 1rem 1.1rem;
+                margin: 0.75rem 0 1rem;
+            }
+            .pq-arb-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.65rem;
+            }
+            @media (max-width: 640px) {
+                .pq-arb-grid { grid-template-columns: 1fr; }
+            }
+            .pq-book-card {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 12px;
+                padding: 0.85rem;
+            }
+            .pq-book-header {
+                font-size: 0.68rem;
+                font-weight: 800;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin-bottom: 0.35rem;
+            }
+            .pq-book-title {
+                font-size: 0.82rem;
+                font-weight: 700;
+                color: #f0f2f5;
+                line-height: 1.35;
+                margin-bottom: 0.65rem;
+                min-height: 2.2rem;
+            }
+            .pq-odd-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.45rem 0.55rem;
+                border-radius: 8px;
+                margin-bottom: 0.35rem;
+                font-size: 0.8rem;
+                font-weight: 700;
+            }
+            .pq-odd-row.yes {
+                background: rgba(88,166,255,0.12);
+                border: 1px solid rgba(88,166,255,0.35);
+                color: #58a6ff;
+            }
+            .pq-odd-row.no {
+                background: #21262d;
+                border: 1px solid #30363d;
+                color: #c9d1d9;
+            }
+            .pq-odd-row .pq-odd-val {
+                font-weight: 800;
+                color: #f0f2f5;
+                font-size: 0.78rem;
+            }
+            .pq-strategy-card {
+                background: #161b22;
+                border: 1px solid #21262d;
+                border-radius: 14px;
+                padding: 1rem 1.1rem;
+                margin: 0.65rem 0;
+            }
+            .pq-strategy-card.pq-strategy-live {
+                border-color: #3fb950;
+                box-shadow: 0 0 20px rgba(63,185,80,0.15);
+            }
+            .pq-strategy-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.65rem;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+            }
+            .pq-strategy-title {
+                font-size: 0.95rem;
+                font-weight: 800;
+                color: #f0f2f5;
+                margin: 0;
+            }
+            .pq-strategy-badge {
+                font-size: 0.68rem;
+                font-weight: 800;
+                padding: 0.25rem 0.55rem;
+                border-radius: 999px;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            .pq-strategy-badge.live {
+                background: rgba(63,185,80,0.22);
+                color: #3fb950;
+                border: 1px solid #3fb950;
+            }
+            .pq-strategy-badge.dead {
+                background: #21262d;
+                color: #8b949e;
+                border: 1px solid #30363d;
+            }
+            .pq-strategy-metrics {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.45rem;
+                margin-top: 0.65rem;
+            }
+            @media (max-width: 480px) {
+                .pq-strategy-metrics { grid-template-columns: 1fr; }
+            }
+            .pq-metric-box {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 10px;
+                padding: 0.55rem 0.65rem;
+                text-align: center;
+            }
+            .pq-metric-box .lbl {
+                display: block;
+                font-size: 0.62rem;
+                font-weight: 700;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .pq-metric-box .val {
+                display: block;
+                font-size: 0.95rem;
+                font-weight: 800;
+                color: #f0f2f5;
+                margin-top: 0.15rem;
+            }
+            .pq-metric-box .val.green { color: #3fb950; }
+
             /* Ledger calendar flexbox */
             .pq-calendar-wrap { margin: 0.75rem 0 1rem; }
             .pq-cal-grid {
@@ -1928,6 +2067,131 @@ def render_explore_hub() -> None:
         st.info(st.session_state.explore_action_hint)
 
 
+def _render_cross_book_odds(
+    poly_row: pd.Series,
+    kalshi_row: pd.Series,
+    odds_fmt: str,
+) -> None:
+    """Side-by-side Polymarket vs Kalshi YES/NO prices."""
+    poly_yes = float(poly_row["Yes Price"])
+    poly_no = float(poly_row["No Price"])
+    kalshi_yes = float(kalshi_row["Kalshi YES Cost"])
+    kalshi_no = float(kalshi_row["Kalshi NO Cost"])
+
+    def _row(side: str, price: float) -> str:
+        cents = price * 100.0
+        odds = format_odds_display(price, odds_fmt)
+        cls = "yes" if side == "YES" else "no"
+        return (
+            f'<div class="pq-odd-row {cls}">'
+            f"<span>{side}</span>"
+            f'<span class="pq-odd-val">{cents:.1f}¢ · {html.escape(odds)}</span>'
+            f"</div>"
+        )
+
+    poly_title = html.escape(_select_label(str(poly_row["Question"]), 80))
+    kalshi_title = html.escape(_select_label(str(kalshi_row["Title"]), 80))
+
+    st.markdown(
+        f"""
+        <div class="pq-arb-compare">
+            <p class="pq-section-label" style="margin-top:0;">Cross-book odds comparison</p>
+            <div class="pq-arb-grid">
+                <div class="pq-book-card">
+                    <div class="pq-book-header">Polymarket</div>
+                    <div class="pq-book-title">{poly_title}</div>
+                    {_row("YES", poly_yes)}
+                    {_row("NO", poly_no)}
+                </div>
+                <div class="pq-book-card">
+                    <div class="pq-book-header">Kalshi</div>
+                    <div class="pq-book-title">{kalshi_title}</div>
+                    {_row("YES", kalshi_yes)}
+                    {_row("NO", kalshi_no)}
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_arb_strategy_card(
+    label: str,
+    poly_side: str,
+    poly_price: float,
+    kalshi_side: str,
+    kalshi_price: float,
+    stake: float,
+    odds_fmt: str,
+) -> None:
+    """One arb recipe with legs, combined cost, ROI, and profit at stake."""
+    total_cost = poly_price + kalshi_price
+    net, roi = _arb_opportunity(total_cost)
+    is_arb = total_cost < 1.0
+    profit = net * stake
+    total_outlay = stake * 2.0
+
+    poly_odds = format_odds_display(poly_price, odds_fmt)
+    kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
+    poly_c = poly_price * 100.0
+    kalshi_c = kalshi_price * 100.0
+
+    card_cls = "pq-strategy-card pq-strategy-live" if is_arb else "pq-strategy-card"
+    badge_cls = "pq-strategy-badge live" if is_arb else "pq-strategy-badge dead"
+    badge_txt = "🔒 Arb locked" if is_arb else "No lock"
+
+    lock_html = ""
+    if is_arb:
+        lock_html = (
+            f'<div class="pq-lock-banner">Guaranteed +${profit:.2f} profit on '
+            f"${total_outlay:,.0f} total outlay</div>"
+        )
+
+    st.markdown(
+        f"""
+        <div class="{card_cls}">
+            <div class="pq-strategy-head">
+                <p class="pq-strategy-title">{html.escape(label)}</p>
+                <span class="{badge_cls}">{badge_txt}</span>
+            </div>
+            <div class="pq-split">
+                <div class="pq-split-side">
+                    <div class="venue">Polymarket</div>
+                    <div class="leg">Buy {html.escape(poly_side)}</div>
+                    <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
+                        {poly_c:.1f}¢ · {html.escape(poly_odds)} · ${stake:,.0f}
+                    </div>
+                </div>
+                <div class="pq-split-side">
+                    <div class="venue">Kalshi</div>
+                    <div class="leg">Buy {html.escape(kalshi_side)}</div>
+                    <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
+                        {kalshi_c:.1f}¢ · {html.escape(kalshi_odds)} · ${stake:,.0f}
+                    </div>
+                </div>
+            </div>
+            <div class="pq-strategy-metrics">
+                <div class="pq-metric-box">
+                    <span class="lbl">Combined cost</span>
+                    <span class="val">{total_cost * 100:.1f}¢ / $1</span>
+                </div>
+                <div class="pq-metric-box">
+                    <span class="lbl">ROI</span>
+                    <span class="val {'green' if is_arb else ''}">{roi:+.2f}%</span>
+                </div>
+                <div class="pq-metric-box">
+                    <span class="lbl">Net edge</span>
+                    <span class="val {'green' if is_arb else ''}">${net:.4f}/$1</span>
+                </div>
+            </div>
+        </div>
+        {lock_html}
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _render_arb_split(
     poly_side: str,
     poly_price: float,
@@ -1995,6 +2259,7 @@ def _render_arb_recipe(
 
 def render_risk_free_arbs() -> None:
     st.markdown("### 💰 Risk-Free Arbs")
+    st.caption("Pick one market on each exchange · we compare YES/NO and show both arb recipes.")
 
     bar_l, bar_r = st.columns([2, 1])
     with bar_l:
@@ -2006,7 +2271,7 @@ def render_risk_free_arbs() -> None:
             key="arb_stake",
         )
     with bar_r:
-        if st.button("Refresh prices", key="refresh_arb", use_container_width=True):
+        if st.button("↻ Refresh prices", key="refresh_arb", use_container_width=True):
             fetch_polymarket_markets.clear()
             fetch_kalshi_markets.clear()
             fetch_kalshi_player_props.clear()
@@ -2044,12 +2309,15 @@ def render_risk_free_arbs() -> None:
         for _, row in kalshi_priced.iterrows()
     }
 
-    poly_id = render_searchable_picker(
-        "Polymarket Event", poly_options, "poly_selected", show_prices=poly_prices,
-    )
-    kalshi_ticker = render_searchable_picker(
-        "Kalshi Event", kalshi_options, "kalshi_selected", show_prices=kalshi_prices,
-    )
+    pick_l, pick_r = st.columns(2)
+    with pick_l:
+        poly_id = render_searchable_picker(
+            "Polymarket Event", poly_options, "poly_selected", show_prices=poly_prices,
+        )
+    with pick_r:
+        kalshi_ticker = render_searchable_picker(
+            "Kalshi Event", kalshi_options, "kalshi_selected", show_prices=kalshi_prices,
+        )
     if not poly_id or not kalshi_ticker:
         return
 
@@ -2061,36 +2329,32 @@ def render_risk_free_arbs() -> None:
     kalshi_yes = float(kalshi_row["Kalshi YES Cost"])
     kalshi_no = float(kalshi_row["Kalshi NO Cost"])
 
+    _render_cross_book_odds(poly_row, kalshi_row, odds_fmt)
+
+    st.markdown('<p class="pq-section-label">Arb strategies</p>', unsafe_allow_html=True)
+
+    _render_arb_strategy_card(
+        "Strategy A — Poly YES + Kalshi NO",
+        "YES", poly_yes,
+        "NO", kalshi_no,
+        arb_stake,
+        odds_fmt,
+    )
+    _render_arb_strategy_card(
+        "Strategy B — Poly NO + Kalshi YES",
+        "NO", poly_no,
+        "YES", kalshi_yes,
+        arb_stake,
+        odds_fmt,
+    )
+
     cost_a = poly_yes + kalshi_no
-    net_a, _ = _arb_opportunity(cost_a)
     cost_b = poly_no + kalshi_yes
-    net_b, _ = _arb_opportunity(cost_b)
-
-    yes_c = poly_yes * 100.0
-    no_k_c = kalshi_no * 100.0
-    no_p_c = poly_no * 100.0
-    yes_k_c = kalshi_yes * 100.0
-
-    _render_arb_recipe(
-        "Recipe A",
-        f"Buy YES on Polymarket at {yes_c:.1f}¢ (${arb_stake:,.0f})",
-        f"Buy NO on Kalshi at {no_k_c:.1f}¢ (${arb_stake:,.0f})",
-        net_a,
-        arb_stake,
-        cost_a < 1.0,
-    )
-    _render_arb_recipe(
-        "Recipe B",
-        f"Buy NO on Polymarket at {no_p_c:.1f}¢ (${arb_stake:,.0f})",
-        f"Buy YES on Kalshi at {yes_k_c:.1f}¢ (${arb_stake:,.0f})",
-        net_b,
-        arb_stake,
-        cost_b < 1.0,
-    )
-
     if cost_a >= 1.0 and cost_b >= 1.0:
         st.markdown(
-            '<div class="pq-card"><span class="pq-badge pq-badge-grey">No lock available on this pair</span></div>',
+            '<div class="pq-card"><span class="pq-badge pq-badge-grey">'
+            "No guaranteed lock on this pair — combined costs exceed $1.00 on both recipes."
+            "</span></div>",
             unsafe_allow_html=True,
         )
 
