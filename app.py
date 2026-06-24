@@ -58,8 +58,8 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.0.0-perf-calendar"
-GIT_SHA = "6f2cc3c"
+APP_BUILD = "3.1.0-arb-detail"
+GIT_SHA = "pending"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
@@ -1796,6 +1796,108 @@ def _inject_global_css() -> None:
                 margin-top: 0.15rem;
             }
             .pq-metric-box .val.green { color: #3fb950; }
+            .pq-metric-box .val.red { color: #f85149; }
+
+            /* Arb execution legs */
+            .pq-arb-legs {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 10px;
+                padding: 0.35rem 0.7rem;
+                margin: 0.55rem 0;
+            }
+            .pq-leg-line {
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+                padding: 0.45rem 0;
+                border-bottom: 1px solid #21262d;
+                font-size: 0.82rem;
+                color: #c9d1d9;
+            }
+            .pq-leg-line:last-child { border-bottom: none; }
+            .pq-leg-step {
+                flex: 0 0 auto;
+                width: 1.3rem;
+                height: 1.3rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(88,166,255,0.15);
+                color: #58a6ff;
+                border-radius: 6px;
+                font-size: 0.72rem;
+                font-weight: 800;
+            }
+            .pq-leg-text { flex: 1 1 auto; line-height: 1.4; }
+            .pq-leg-text strong { color: #f0f2f5; }
+            .pq-leg-cost {
+                flex: 0 0 auto;
+                font-weight: 800;
+                color: #f0f2f5;
+                font-variant-numeric: tabular-nums;
+            }
+            .pq-leg-total .pq-leg-step { background: #21262d; color: #8b949e; }
+            .pq-leg-total .pq-leg-text strong { color: #c9d1d9; }
+
+            /* Arb payout scenarios */
+            .pq-payout-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.45rem;
+            }
+            .pq-payout-cell {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 10px;
+                padding: 0.55rem 0.65rem;
+                text-align: center;
+            }
+            .pq-payout-cell.win { border-color: rgba(63,185,80,0.45); }
+            .pq-payout-cell .lbl {
+                display: block;
+                font-size: 0.6rem;
+                font-weight: 700;
+                color: #8b949e;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .pq-payout-cell .ret {
+                display: block;
+                font-size: 1.05rem;
+                font-weight: 800;
+                color: #f0f2f5;
+                margin-top: 0.2rem;
+                font-variant-numeric: tabular-nums;
+            }
+            .pq-payout-cell .pl {
+                display: block;
+                font-size: 0.8rem;
+                font-weight: 700;
+                margin-top: 0.1rem;
+                font-variant-numeric: tabular-nums;
+            }
+            .pq-payout-cell .pl.green { color: #3fb950; }
+            .pq-payout-cell .pl.red { color: #f85149; }
+            .pq-arb-note {
+                font-size: 0.78rem;
+                color: #8b949e;
+                line-height: 1.5;
+                margin: 0.65rem 0 0;
+            }
+            .pq-arb-note strong { color: #c9d1d9; }
+            .pq-arb-explainer {
+                background: #0d1117;
+                border: 1px solid #21262d;
+                border-left: 3px solid #58a6ff;
+                border-radius: 10px;
+                padding: 0.7rem 0.85rem;
+                margin: 0.35rem 0 0.9rem;
+                font-size: 0.8rem;
+                color: #8b949e;
+                line-height: 1.55;
+            }
+            .pq-arb-explainer strong { color: #c9d1d9; }
 
             /* Kalshi auto-suggest */
             .pq-suggest-card {
@@ -2582,15 +2684,20 @@ def _render_arb_strategy_card(
     poly_price: float,
     kalshi_side: str,
     kalshi_price: float,
-    stake: float,
+    budget: float,
     odds_fmt: str,
 ) -> None:
-    """One arb recipe with legs, combined cost, ROI, and profit at stake."""
+    """One arb recipe: matched-share sizing, per-leg dollars, payout in both outcomes."""
     total_cost = poly_price + kalshi_price
     net, roi = _arb_opportunity(total_cost)
     is_arb = total_cost < 1.0
-    profit = net * stake
-    total_outlay = stake * 2.0
+
+    shares = budget / total_cost if total_cost > 0 else 0.0
+    poly_leg = shares * poly_price
+    kalshi_leg = shares * kalshi_price
+    outlay = poly_leg + kalshi_leg
+    payout = shares * 1.0
+    profit = payout - outlay
 
     poly_odds = format_odds_display(poly_price, odds_fmt)
     kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
@@ -2600,13 +2707,29 @@ def _render_arb_strategy_card(
     card_cls = "pq-strategy-card pq-strategy-live" if is_arb else "pq-strategy-card"
     badge_cls = "pq-strategy-badge live" if is_arb else "pq-strategy-badge dead"
     badge_txt = "🔒 Arb locked" if is_arb else "No lock"
+    pl_cls = "green" if profit >= 0 else "red"
+    cell_cls = "pq-payout-cell win" if is_arb else "pq-payout-cell"
 
-    lock_html = ""
     if is_arb:
-        lock_html = (
-            f'<div class="pq-lock-banner">Guaranteed +${profit:.2f} profit on '
-            f"${total_outlay:,.0f} total outlay</div>"
+        note = (
+            f"<strong>Buy the same {shares:,.0f} shares on each book.</strong> Whichever way the "
+            f"market settles, exactly one leg pays ${payout:,.2f} and the other expires worthless — "
+            f"so you collect ${payout:,.2f} against ${outlay:,.2f} spent. That locks "
+            f"<strong>+${profit:,.2f}</strong> ({roi:+.2f}%) with zero exposure to the outcome."
         )
+        lock_html = (
+            f'<div class="pq-lock-banner">🔒 Guaranteed +${profit:,.2f} profit on '
+            f"${outlay:,.2f} deployed ({roi:+.2f}% locked)</div>"
+        )
+    else:
+        over = (total_cost - 1.0) * 100.0
+        note = (
+            f"Both legs together cost <strong>{total_cost * 100:.1f}¢</strong> for a $1 payout — "
+            f"that is {over:.1f}¢ over the dollar. Pairing them on the same event guarantees a "
+            f"<strong>${-profit:,.2f}</strong> loss, so this is not a lock. You need the two legs to "
+            f"total under 100¢ before an edge exists."
+        )
+        lock_html = ""
 
     st.markdown(
         f"""
@@ -2615,20 +2738,42 @@ def _render_arb_strategy_card(
                 <p class="pq-strategy-title">{html.escape(label)}</p>
                 <span class="{badge_cls}">{badge_txt}</span>
             </div>
-            <div class="pq-split">
-                <div class="pq-split-side">
-                    <div class="venue">Polymarket</div>
-                    <div class="leg">Buy {html.escape(poly_side)}</div>
-                    <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
-                        {poly_c:.1f}¢ · {html.escape(poly_odds)} · ${stake:,.0f}
-                    </div>
+            <div class="pq-arb-legs">
+                <div class="pq-leg-line">
+                    <span class="pq-leg-step">1</span>
+                    <span class="pq-leg-text">
+                        <strong>Polymarket</strong> — buy <strong>{html.escape(poly_side)}</strong>
+                        · {shares:,.0f} shares @ {poly_c:.1f}¢ ({html.escape(poly_odds)})
+                    </span>
+                    <span class="pq-leg-cost">${poly_leg:,.2f}</span>
                 </div>
-                <div class="pq-split-side">
-                    <div class="venue">Kalshi</div>
-                    <div class="leg">Buy {html.escape(kalshi_side)}</div>
-                    <div style="font-size:0.78rem;color:#8b949e;margin-top:0.35rem;">
-                        {kalshi_c:.1f}¢ · {html.escape(kalshi_odds)} · ${stake:,.0f}
-                    </div>
+                <div class="pq-leg-line">
+                    <span class="pq-leg-step">2</span>
+                    <span class="pq-leg-text">
+                        <strong>Kalshi</strong> — buy <strong>{html.escape(kalshi_side)}</strong>
+                        · {shares:,.0f} shares @ {kalshi_c:.1f}¢ ({html.escape(kalshi_odds)})
+                    </span>
+                    <span class="pq-leg-cost">${kalshi_leg:,.2f}</span>
+                </div>
+                <div class="pq-leg-line pq-leg-total">
+                    <span class="pq-leg-step">=</span>
+                    <span class="pq-leg-text"><strong>Total outlay</strong></span>
+                    <span class="pq-leg-cost">${outlay:,.2f}</span>
+                </div>
+            </div>
+            <p class="pq-section-label" style="margin:0.6rem 0 0.4rem;">
+                Payout — same result either way
+            </p>
+            <div class="pq-payout-grid">
+                <div class="{cell_cls}">
+                    <span class="lbl">If it resolves {html.escape(poly_side)}</span>
+                    <span class="ret">${payout:,.2f}</span>
+                    <span class="pl {pl_cls}">{profit:+,.2f}</span>
+                </div>
+                <div class="{cell_cls}">
+                    <span class="lbl">If it resolves {html.escape("NO" if poly_side == "YES" else "YES")}</span>
+                    <span class="ret">${payout:,.2f}</span>
+                    <span class="pl {pl_cls}">{profit:+,.2f}</span>
                 </div>
             </div>
             <div class="pq-strategy-metrics">
@@ -2638,13 +2783,14 @@ def _render_arb_strategy_card(
                 </div>
                 <div class="pq-metric-box">
                     <span class="lbl">ROI</span>
-                    <span class="val {'green' if is_arb else ''}">{roi:+.2f}%</span>
+                    <span class="val {pl_cls}">{roi:+.2f}%</span>
                 </div>
                 <div class="pq-metric-box">
-                    <span class="lbl">Net edge</span>
-                    <span class="val {'green' if is_arb else ''}">${net:.4f}/$1</span>
+                    <span class="lbl">Guaranteed P/L</span>
+                    <span class="val {pl_cls}">{'+' if profit >= 0 else '−'}${abs(profit):,.2f}</span>
                 </div>
             </div>
+            <p class="pq-arb-note">{note}</p>
         </div>
         {lock_html}
         """,
@@ -2724,12 +2870,14 @@ def render_risk_free_arbs() -> None:
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        arb_stake = st.number_input(
-            "Stake per leg ($)",
+        arb_budget = st.number_input(
+            "Total budget ($)",
             min_value=1.0,
             value=DEFAULT_ARB_STAKE,
             step=10.0,
             key="arb_stake",
+            help="Total cash split across both legs. We size matched shares so the winning leg "
+            "always returns the same amount.",
         )
     with c2:
         if st.button("↻ Refresh prices", key="refresh_arb", use_container_width=True):
@@ -2797,29 +2945,46 @@ def render_risk_free_arbs() -> None:
 
     _render_cross_book_odds(poly_row, kalshi_row, odds_fmt)
 
+    cost_a = poly_yes + kalshi_no
+    cost_b = poly_no + kalshi_yes
+    best_cost = min(cost_a, cost_b)
+
     st.markdown('<p class="pq-section-label">Arb strategies</p>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="pq-arb-explainer">
+            <strong>How to read these.</strong> Each strategy buys the matched outcome on each book
+            so one leg always pays $1/share. If the two legs together cost under
+            <strong>100¢</strong>, the difference is locked profit no matter how the event settles.
+            Best pairing here totals <strong>{best_cost * 100:.1f}¢</strong> on the dollar
+            — {"a live lock ✅" if best_cost < 1.0 else "no lock yet ⚠️"}.
+            ⚠️ Only a true arb if both markets resolve on the <strong>same underlying event</strong>;
+            costs shown exclude exchange fees.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     _render_arb_strategy_card(
         "Strategy A — Poly YES + Kalshi NO",
         "YES", poly_yes,
         "NO", kalshi_no,
-        arb_stake,
+        arb_budget,
         odds_fmt,
     )
     _render_arb_strategy_card(
         "Strategy B — Poly NO + Kalshi YES",
         "NO", poly_no,
         "YES", kalshi_yes,
-        arb_stake,
+        arb_budget,
         odds_fmt,
     )
 
-    cost_a = poly_yes + kalshi_no
-    cost_b = poly_no + kalshi_yes
     if cost_a >= 1.0 and cost_b >= 1.0:
         st.markdown(
             '<div class="pq-card"><span class="pq-badge pq-badge-grey">'
-            "No guaranteed lock on this pair — combined costs exceed $1.00 on both recipes."
+            "No guaranteed lock on this pair — combined costs exceed $1.00 on both recipes. "
+            "Try a different Polymarket/Kalshi pairing or refresh prices."
             "</span></div>",
             unsafe_allow_html=True,
         )
@@ -3138,7 +3303,7 @@ def _render_deploy_strip() -> None:
         <span style="color:#3fb950;font-weight:800;">LIVE BUILD</span>
         &nbsp;{html.escape(APP_BUILD)}&nbsp;·&nbsp;commit&nbsp;
         <code style="color:#58a6ff;">{html.escape(GIT_SHA)}</code>
-        &nbsp;·&nbsp;Ledger calendar + dataframe terminal active
+        &nbsp;·&nbsp;Detailed arb sizing + payout breakdown active
         </div>
         """,
         unsafe_allow_html=True,
