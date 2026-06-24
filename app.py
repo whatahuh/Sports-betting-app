@@ -1003,12 +1003,14 @@ def render_searchable_picker(
         st.session_state[page_key] = 0
 
     st.markdown(f'<p class="pq-section-label">{label}</p>', unsafe_allow_html=True)
-    query = st.text_input(
-        f"Search {label}",
-        key=f"{session_key}_search",
-        placeholder="Search by keyword…",
-        label_visibility="collapsed",
-    ).lower().strip()
+    search_col, _ = st.columns([3, 1])
+    with search_col:
+        query = st.text_input(
+            f"Search {label}",
+            key=f"{session_key}_search",
+            placeholder="Search by keyword…",
+            label_visibility="collapsed",
+        ).lower().strip()
     if not query:
         query = st.session_state.get("global_search_query", "").strip().lower()
 
@@ -2143,8 +2145,8 @@ def render_audit_my_bet() -> None:
     st.markdown("### ⚖️ Audit My Bet")
 
     st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
+    col1, col2 = st.columns(2)
+    with col1:
         true_win_prob = st.number_input(
             "Your win estimate (%)",
             min_value=0.0,
@@ -2152,20 +2154,21 @@ def render_audit_my_bet() -> None:
             value=77.5,
             step=0.5,
         )
-    with c2:
-        stake = st.number_input(
-            "Stake ($)",
-            min_value=0.0,
-            value=100.0,
-            step=10.0,
-        )
-    with c3:
+    with col2:
         share_price = st.number_input(
             "Share price (¢)",
             min_value=0.01,
             max_value=99.99,
             value=50.0,
             step=1.0,
+        )
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        stake = st.number_input(
+            "Stake ($)",
+            min_value=0.0,
+            value=100.0,
+            step=10.0,
         )
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -2176,19 +2179,15 @@ def render_audit_my_bet() -> None:
 def render_hype_vs_reality() -> None:
     st.markdown("### 📣 Hype vs. Reality")
 
-    left, right = st.columns(2)
-    with left:
-        st.markdown('<div class="pq-hype-col">', unsafe_allow_html=True)
-        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0;">What people are saying</p>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What people are saying</p>', unsafe_allow_html=True)
         sentiment = st.slider("Social Sentiment", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_sent")
         st.markdown(f'<p class="pq-hype-val">{sentiment:.0f}%</p>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-    with right:
-        st.markdown('<div class="pq-hype-col">', unsafe_allow_html=True)
-        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0;">What the math says</p>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.25rem;">What the math says</p>', unsafe_allow_html=True)
         implied_prob = st.slider("True Win", 0.0, 100.0, 50.0, 0.5, label_visibility="collapsed", key="hype_real")
         st.markdown(f'<p class="pq-hype-val">{implied_prob:.0f}%</p>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     delta = sentiment - implied_prob
     if delta >= DIVERGENCE_TRIGGER:
@@ -2294,17 +2293,6 @@ def render_explore_hub() -> None:
     st.markdown("### 🔍 Explore")
     query = st.session_state.get("global_search_query", "").strip().lower()
 
-    bar_l, bar_r = st.columns([3, 1])
-    with bar_l:
-        st.caption("Browse markets · tap **Select** to load into Risk-Free Arbs.")
-    with bar_r:
-        if st.button("Refresh", key="refresh_explore", use_container_width=True):
-            build_explore_catalog.clear()
-            fetch_polymarket_markets.clear()
-            fetch_kalshi_markets.clear()
-            fetch_kalshi_player_props.clear()
-            st.rerun()
-
     try:
         catalog = build_explore_catalog()
     except Exception:
@@ -2315,29 +2303,41 @@ def render_explore_hub() -> None:
         st.warning("No markets available to explore right now.")
         return
 
-    st.markdown('<div class="pq-filter-row">', unsafe_allow_html=True)
-    category = st.pills(
-        "Category",
-        options=list(EXPLORE_CATEGORIES),
-        key="explore_category",
-        label_visibility="collapsed",
-    )
-
-    sports_type = "All"
-    if category in ("Sports", "Player Props"):
-        sports_type = st.pills(
-            "Market Type",
-            options=list(EXPLORE_SPORTS_TYPES),
-            key="explore_sports_type",
-            label_visibility="collapsed",
+    st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        category = st.selectbox(
+            "Category",
+            options=list(EXPLORE_CATEGORIES),
+            key="explore_category",
+            label_visibility="visible",
         )
-
-    source = st.pills(
-        "Source",
-        options=list(EXPLORE_SOURCES),
-        key="explore_source",
-        label_visibility="collapsed",
-    )
+    with col2:
+        source = st.selectbox(
+            "Source",
+            options=list(EXPLORE_SOURCES),
+            key="explore_source",
+            label_visibility="visible",
+        )
+    c1, c2, c3 = st.columns(3)
+    sports_type = "All"
+    with c1:
+        if category in ("Sports", "Player Props"):
+            sports_type = st.selectbox(
+                "Market Type",
+                options=list(EXPLORE_SPORTS_TYPES),
+                key="explore_sports_type",
+                label_visibility="visible",
+            )
+    with c2:
+        if st.button("↻ Refresh catalog", key="refresh_explore", use_container_width=True):
+            build_explore_catalog.clear()
+            fetch_polymarket_markets.clear()
+            fetch_kalshi_markets.clear()
+            fetch_kalshi_player_props.clear()
+            st.rerun()
+    with c3:
+        st.caption("Tap **Select** on a row to load into Arbs.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     filtered = _filter_explore_catalog(
@@ -2592,8 +2592,9 @@ def render_risk_free_arbs() -> None:
     st.markdown("### 💰 Risk-Free Arbs")
     st.caption("Pick one market on each exchange · we compare YES/NO and show both arb recipes.")
 
-    bar_l, bar_r = st.columns([2, 1])
-    with bar_l:
+    st.markdown('<div class="pq-input-card">', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
         arb_stake = st.number_input(
             "Stake per leg ($)",
             min_value=1.0,
@@ -2601,12 +2602,13 @@ def render_risk_free_arbs() -> None:
             step=10.0,
             key="arb_stake",
         )
-    with bar_r:
+    with c2:
         if st.button("↻ Refresh prices", key="refresh_arb", use_container_width=True):
             fetch_polymarket_markets.clear()
             fetch_kalshi_markets.clear()
             fetch_kalshi_player_props.clear()
             st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
     try:
         poly_df = fetch_polymarket_markets()
