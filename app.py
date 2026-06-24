@@ -16,7 +16,9 @@ import hmac
 import html
 import json
 import os
+import re
 from datetime import date, datetime, timezone
+from difflib import SequenceMatcher
 from typing import Any, Optional
 
 import pandas as pd
@@ -56,6 +58,7 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
+APP_BUILD = "2.2.0-arb-autosuggest"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
@@ -775,6 +778,8 @@ def _init_session() -> None:
         st.session_state.explore_source = "Both"
     if "explore_page" not in st.session_state:
         st.session_state.explore_page = 0
+    if "arb_poly_anchor" not in st.session_state:
+        st.session_state.arb_poly_anchor = None
 
 
 def get_odds_format() -> str:
@@ -849,6 +854,120 @@ def _short_title(text: str, limit: int = 52) -> str:
     if len(clean) <= limit:
         return clean
     return clean[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+_MATCH_STOPWORDS = frozenset({
+    "will", "the", "a", "an", "to", "of", "in", "on", "by", "before", "after",
+    "be", "is", "at", "or", "and", "for", "than", "that", "this", "with",
+})
+
+
+def _normalize_match_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9\s]", " ", str(text).lower())
+
+
+def _tokenize_for_match(text: str) -> set[str]:
+    return {
+        t for t in _normalize_match_text(text).split()
+        if len(t) > 1 and t not in _MATCH_STOPWORDS
+    }
+
+
+def _title_match_score(poly_title: str, kalshi_title: str) -> float:
+    """Fuzzy match score 0–1 between Polymarket and Kalshi market titles."""
+    poly_tokens = _tokenize_for_match(poly_title)
+    kalshi_tokens = _tokenize_for_match(kalshi_title)
+    if not poly_tokens or not kalshi_tokens:
+        return 0.0
+
+    overlap = len(poly_tokens & kalshi_tokens) / max(len(poly_tokens), 1)
+    seq = SequenceMatcher(
+        None,
+        _normalize_match_text(poly_title),
+        _normalize_match_text(kalshi_title),
+    ).ratio()
+
+    nums_poly = set(re.findall(r"\d{4}|\d+", poly_title))
+    nums_kalshi = set(re.findall(r"\d{4}|\d+", kalshi_title))
+    num_bonus = 0.18 if nums_poly & nums_kalshi else 0.0
+
+    substring_bonus = 0.12 if _normalize_match_text(poly_title)[:24] in _normalize_match_text(kalshi_title) else 0.0
+
+    return min(1.0, 0.50 * overlap + 0.30 * seq + num_bonus + substring_bonus)
+
+
+def _rank_kalshi_for_poly(
+    poly_title: str,
+    kalshi_df: pd.DataFrame,
+    top_n: int = 5,
+) -> list[tuple[float, str, str]]:
+    ranked: list[tuple[float, str, str]] = []
+    for _, row in kalshi_df.iterrows():
+        ticker = str(row["ticker"])
+        title = str(row["Title"])
+        score = _title_match_score(poly_title, title)
+        if score >= 0.12:
+            ranked.append((score, ticker, title))
+    ranked.sort(key=lambda x: x[0], reverse=True)
+    return ranked[:top_n]
+
+
+def _sync_kalshi_auto_suggest(
+    poly_id: str,
+    poly_title: str,
+    kalshi_priced: pd.DataFrame,
+) -> list[tuple[float, str, str]]:
+    """When Polymarket pick changes, rank Kalshi matches and auto-select best."""
+    suggestions = _rank_kalshi_for_poly(poly_title, kalshi_priced)
+    st.session_state.arb_kalshi_suggestions = suggestions
+
+    if poly_id != st.session_state.get("arb_poly_anchor"):
+        st.session_state.arb_poly_anchor = poly_id
+        if suggestions:
+            best_score, best_ticker, _ = suggestions[0]
+            if best_score >= 0.20:
+                st.session_state.kalshi_selected = best_ticker
+            st.session_state.kalshi_selected_page = 0
+            seed_tokens = list(_tokenize_for_match(poly_title))[:6]
+            if seed_tokens:
+                st.session_state.kalshi_selected_search = " ".join(seed_tokens)
+
+    return suggestions
+
+
+def _render_kalshi_suggestions(
+    suggestions: list[tuple[float, str, str]],
+    kalshi_prices: dict[str, str],
+) -> None:
+    if not suggestions:
+        st.caption("No close Kalshi title matches — search manually below.")
+        return
+
+    st.markdown(
+        '<p class="pq-section-label">Suggested Kalshi matches for your Polymarket pick</p>',
+        unsafe_allow_html=True,
+    )
+    for score, ticker, title in suggestions[:5]:
+        prices = kalshi_prices.get(ticker, "")
+        pct = f"{score * 100:.0f}% match"
+        st.markdown(
+            f"""
+            <div class="pq-suggest-card">
+                <span class="pq-suggest-score">{html.escape(pct)}</span>
+                <span class="pq-suggest-title">{html.escape(_short_title(title, 64))}</span>
+                <span class="pq-suggest-meta">{html.escape(prices)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "Use this Kalshi market" if st.session_state.get("kalshi_selected") != ticker else "✓ Selected",
+            key=f"kalshi_suggest_{ticker}",
+            use_container_width=True,
+            type="primary" if st.session_state.get("kalshi_selected") == ticker else "secondary",
+        ):
+            st.session_state.kalshi_selected = ticker
+            st.rerun()
 
 
 def render_odds_format_toggle() -> None:
@@ -1628,6 +1747,44 @@ def _inject_global_css() -> None:
             }
             .pq-metric-box .val.green { color: #3fb950; }
 
+            /* Kalshi auto-suggest */
+            .pq-suggest-card {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 12px;
+                padding: 0.7rem 0.85rem;
+                margin-bottom: 0.35rem;
+            }
+            .pq-suggest-score {
+                display: inline-block;
+                font-size: 0.65rem;
+                font-weight: 800;
+                color: #58a6ff;
+                background: rgba(88,166,255,0.12);
+                border: 1px solid rgba(88,166,255,0.35);
+                border-radius: 999px;
+                padding: 0.15rem 0.45rem;
+                margin-bottom: 0.35rem;
+            }
+            .pq-suggest-title {
+                display: block;
+                font-size: 0.84rem;
+                font-weight: 700;
+                color: #f0f2f5;
+                line-height: 1.35;
+            }
+            .pq-suggest-meta {
+                display: block;
+                font-size: 0.72rem;
+                color: #58a6ff;
+                font-weight: 600;
+                margin-top: 0.2rem;
+            }
+            .pq-build-tag {
+                color: #58a6ff;
+                font-weight: 700;
+            }
+
             /* Ledger calendar flexbox */
             .pq-calendar-wrap { margin: 0.75rem 0 1rem; }
             .pq-cal-grid {
@@ -1922,6 +2079,7 @@ def _sync_selection_from_catalog(row: pd.Series) -> None:
     """Push explore selection into arb pickers."""
     if row["Source"] == "Polymarket":
         st.session_state.poly_selected = row["id"]
+        st.session_state.arb_poly_anchor = None
     else:
         st.session_state.kalshi_selected = row["id"]
 
@@ -2309,16 +2467,20 @@ def render_risk_free_arbs() -> None:
         for _, row in kalshi_priced.iterrows()
     }
 
-    pick_l, pick_r = st.columns(2)
-    with pick_l:
-        poly_id = render_searchable_picker(
-            "Polymarket Event", poly_options, "poly_selected", show_prices=poly_prices,
-        )
-    with pick_r:
-        kalshi_ticker = render_searchable_picker(
-            "Kalshi Event", kalshi_options, "kalshi_selected", show_prices=kalshi_prices,
-        )
-    if not poly_id or not kalshi_ticker:
+    poly_id = render_searchable_picker(
+        "Polymarket Event", poly_options, "poly_selected", show_prices=poly_prices,
+    )
+    if not poly_id:
+        return
+
+    poly_title = poly_options[poly_id]
+    suggestions = _sync_kalshi_auto_suggest(poly_id, poly_title, kalshi_priced)
+    _render_kalshi_suggestions(suggestions, kalshi_prices)
+
+    kalshi_ticker = render_searchable_picker(
+        "Kalshi Event", kalshi_options, "kalshi_selected", show_prices=kalshi_prices,
+    )
+    if not kalshi_ticker:
         return
 
     poly_row = poly_priced.loc[poly_priced["id"] == poly_id].iloc[0]
@@ -2539,14 +2701,28 @@ _inject_global_css()
 _init_session()
 
 st.markdown(
-    """
+    f"""
     <div class="pq-hero">
         <h1>POLY-QUANT</h1>
-        <p>Prediction-market intelligence · Polymarket + Kalshi</p>
+        <p>Prediction-market intelligence · Polymarket + Kalshi ·
+        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></p>
     </div>
     """,
     unsafe_allow_html=True,
 )
+
+with st.expander("App not updating after deploy?", expanded=False):
+    st.markdown(
+        f"""
+        **You should see Build `{APP_BUILD}` in the header above.**
+
+        1. Streamlit Cloud → your app → **⋮ Manage app** → **Reboot app**
+        2. Confirm **Branch = `main`** and **Main file = `app.py`**
+        3. Hard-refresh your browser (pull down on mobile)
+
+        If the build tag is still old, the cloud app is not pulling latest `main` yet.
+        """
+    )
 
 tool_l, tool_r = st.columns([2, 1])
 with tool_l:
