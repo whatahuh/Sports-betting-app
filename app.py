@@ -58,8 +58,8 @@ KALSHI_MARKETS_URL = "https://external-api.kalshi.com/trade-api/v2/markets"
 REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
-APP_BUILD = "3.1.0-arb-detail-cards"
-GIT_SHA = "a439aeb"
+APP_BUILD = "3.2.0-arb-action-panel"
+GIT_SHA = "b556168+"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
@@ -150,6 +150,31 @@ def _arb_opportunity(total_cost: float) -> tuple[float, float]:
     net_return = 1.0 - total_cost
     roi_pct = (net_return / total_cost * 100.0) if total_cost > 0 else 0.0
     return net_return, roi_pct
+
+
+def _signed_money(value: float) -> str:
+    return f"{'+' if value >= 0 else '-'}${abs(value):,.2f}"
+
+
+def _pct_label(price: Optional[float]) -> str:
+    if price is None or pd.isna(price):
+        return "--%"
+    return f"{price * 100:.1f}%"
+
+
+def _book_price_hint(
+    book: str,
+    yes_price: Optional[float],
+    no_price: Optional[float],
+    odds_fmt: str,
+) -> str:
+    """Compact picker metadata showing the book and YES/NO implied percentages."""
+    yes_odds = format_odds_display(yes_price, odds_fmt)
+    no_odds = format_odds_display(no_price, odds_fmt)
+    return (
+        f"{book} · YES {_pct_label(yes_price)} ({yes_odds}) · "
+        f"NO {_pct_label(no_price)} ({no_odds})"
+    )
 
 
 def _select_label(text: str, max_len: int = 72) -> str:
@@ -1884,6 +1909,80 @@ def _inject_global_css() -> None:
                 margin-top: 0.7rem;
                 padding: 0.7rem 0.75rem;
             }
+            .pq-arb-spotlight {
+                background: linear-gradient(180deg, rgba(88,166,255,0.18), rgba(13,17,23,0.96));
+                border: 2px solid #58a6ff;
+                border-radius: 16px;
+                box-shadow: 0 0 26px rgba(88,166,255,0.18);
+                margin: 0.75rem 0 1rem;
+                padding: 1rem;
+            }
+            .pq-arb-spotlight.live {
+                background: linear-gradient(180deg, rgba(63,185,80,0.22), rgba(13,17,23,0.96));
+                border-color: #3fb950;
+                box-shadow: 0 0 28px rgba(63,185,80,0.22);
+            }
+            .pq-arb-spotlight.dead {
+                background: linear-gradient(180deg, rgba(248,81,73,0.16), rgba(13,17,23,0.96));
+                border-color: #f85149;
+                box-shadow: 0 0 24px rgba(248,81,73,0.15);
+            }
+            .pq-arb-spotlight-kicker {
+                color: #8b949e;
+                font-size: 0.68rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                margin: 0 0 0.25rem;
+                text-transform: uppercase;
+            }
+            .pq-arb-spotlight-title {
+                color: #f0f2f5;
+                font-size: 1.1rem;
+                font-weight: 900;
+                letter-spacing: -0.02em;
+                line-height: 1.2;
+                margin: 0 0 0.7rem;
+            }
+            .pq-arb-action-list {
+                display: grid;
+                gap: 0.5rem;
+                margin: 0.7rem 0;
+            }
+            .pq-arb-action {
+                background: #0d1117;
+                border: 1px solid #30363d;
+                border-radius: 12px;
+                padding: 0.75rem;
+            }
+            .pq-arb-action .step {
+                color: #8b949e;
+                display: block;
+                font-size: 0.66rem;
+                font-weight: 900;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+            }
+            .pq-arb-action .take {
+                color: #f0f2f5;
+                display: block;
+                font-size: 0.94rem;
+                font-weight: 900;
+                margin-top: 0.15rem;
+            }
+            .pq-arb-action .meta {
+                color: #58a6ff;
+                display: block;
+                font-size: 0.78rem;
+                font-weight: 700;
+                margin-top: 0.2rem;
+            }
+            .pq-arb-spotlight-note {
+                color: #c9d1d9;
+                font-size: 0.82rem;
+                line-height: 1.5;
+                margin: 0.65rem 0 0;
+            }
+            .pq-arb-spotlight-note strong { color: #f0f2f5; }
             @media (max-width: 480px) {
                 .pq-arb-ticket-row {
                     grid-template-columns: 1fr 0.62fr;
@@ -2674,16 +2773,16 @@ def _render_cross_book_odds(
     )
 
 
-def _render_arb_strategy_card(
+def _build_arb_strategy(
+    key: str,
     label: str,
     poly_side: str,
     poly_price: float,
     kalshi_side: str,
     kalshi_price: float,
     stake: float,
-    odds_fmt: str,
-) -> None:
-    """One arb recipe with a full ticket and settlement math."""
+) -> dict[str, Any]:
+    """Normalize all displayed math for one cross-book strategy."""
     total_cost = poly_price + kalshi_price
     _, roi = _arb_opportunity(total_cost)
     is_arb = total_cost < 1.0
@@ -2694,7 +2793,112 @@ def _render_arb_strategy_card(
     guaranteed_payout = contracts
     profit = guaranteed_payout - total_outlay
     break_even_gap = 1.0 - total_cost
-    profit_text = f"{'+' if profit >= 0 else '-'}${abs(profit):,.2f}"
+    return {
+        "key": key,
+        "label": label,
+        "poly_side": poly_side,
+        "poly_price": poly_price,
+        "kalshi_side": kalshi_side,
+        "kalshi_price": kalshi_price,
+        "total_cost": total_cost,
+        "roi": roi,
+        "is_arb": is_arb,
+        "contracts": contracts,
+        "poly_cash": poly_cash,
+        "kalshi_cash": kalshi_cash,
+        "total_outlay": total_outlay,
+        "guaranteed_payout": guaranteed_payout,
+        "profit": profit,
+        "break_even_gap": break_even_gap,
+    }
+
+
+def _best_arb_strategy(strategies: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pick the lowest combined-cost strategy; live arbs naturally rank first."""
+    return min(strategies, key=lambda item: float(item["total_cost"]))
+
+
+def _render_selected_arb_spotlight(strategy: dict[str, Any], odds_fmt: str) -> None:
+    """Primary main-screen instruction card for the currently selected strategy."""
+    is_arb = bool(strategy["is_arb"])
+    cls = "live" if is_arb else "dead"
+    kicker = "TAKE THIS ARB" if is_arb else "NO SAFE ARB"
+    title = (
+        "Place these two legs for a locked payout"
+        if is_arb
+        else "Do not place this pair yet - closest strategy shown"
+    )
+
+    poly_side = str(strategy["poly_side"])
+    kalshi_side = str(strategy["kalshi_side"])
+    poly_price = float(strategy["poly_price"])
+    kalshi_price = float(strategy["kalshi_price"])
+    contracts = float(strategy["contracts"])
+    guaranteed_payout = float(strategy["guaranteed_payout"])
+    total_outlay = float(strategy["total_outlay"])
+    profit = float(strategy["profit"])
+    total_c = float(strategy["total_cost"]) * 100.0
+    profit_text = _signed_money(profit)
+    poly_odds = format_odds_display(poly_price, odds_fmt)
+    kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
+    edge_text = (
+        f"Locked edge: {float(strategy['break_even_gap']) * 100:.1f}c per $1."
+        if is_arb
+        else f"Needs {abs(float(strategy['break_even_gap'])) * 100:.1f}c improvement before it is an arb."
+    )
+
+    st.markdown(
+        f"""
+        <div class="pq-arb-spotlight {cls}">
+            <p class="pq-arb-spotlight-kicker">{kicker}</p>
+            <p class="pq-arb-spotlight-title">{html.escape(title)}</p>
+            <div class="pq-arb-action-list">
+                <div class="pq-arb-action">
+                    <span class="step">Step 1 - Polymarket</span>
+                    <span class="take">Buy {html.escape(poly_side)} · {poly_price * 100:.1f}% ({html.escape(poly_odds)})</span>
+                    <span class="meta">{contracts:,.0f} contracts · spend ${float(strategy['poly_cash']):,.2f}</span>
+                </div>
+                <div class="pq-arb-action">
+                    <span class="step">Step 2 - Kalshi</span>
+                    <span class="take">Buy {html.escape(kalshi_side)} · {kalshi_price * 100:.1f}% ({html.escape(kalshi_odds)})</span>
+                    <span class="meta">{contracts:,.0f} contracts · spend ${float(strategy['kalshi_cash']):,.2f}</span>
+                </div>
+            </div>
+            <p class="pq-arb-spotlight-note">
+                Combined cost is <strong>{total_c:.1f}c</strong>. Total cash needed is
+                <strong>${total_outlay:,.2f}</strong> for a <strong>${guaranteed_payout:,.2f}</strong>
+                payout on either outcome. Result before fees/slippage:
+                <strong>{profit_text}</strong>. {html.escape(edge_text)}
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_arb_strategy_card(
+    strategy: dict[str, Any],
+    odds_fmt: str,
+    *,
+    selected: bool = False,
+) -> None:
+    """One arb recipe with a full ticket and settlement math."""
+    label = str(strategy["label"])
+    poly_side = str(strategy["poly_side"])
+    poly_price = float(strategy["poly_price"])
+    kalshi_side = str(strategy["kalshi_side"])
+    kalshi_price = float(strategy["kalshi_price"])
+    total_cost = float(strategy["total_cost"])
+    roi = float(strategy["roi"])
+    is_arb = bool(strategy["is_arb"])
+    contracts = float(strategy["contracts"])
+    poly_cash = float(strategy["poly_cash"])
+    kalshi_cash = float(strategy["kalshi_cash"])
+    total_outlay = float(strategy["total_outlay"])
+    guaranteed_payout = float(strategy["guaranteed_payout"])
+    profit = float(strategy["profit"])
+    break_even_gap = float(strategy["break_even_gap"])
+    profit_text = _signed_money(profit)
 
     poly_odds = format_odds_display(poly_price, odds_fmt)
     kalshi_odds = format_odds_display(kalshi_price, odds_fmt)
@@ -2704,7 +2908,7 @@ def _render_arb_strategy_card(
 
     card_cls = "pq-strategy-card pq-strategy-live" if is_arb else "pq-strategy-card"
     badge_cls = "pq-strategy-badge live" if is_arb else "pq-strategy-badge dead"
-    badge_txt = "Arb locked" if is_arb else "No lock"
+    badge_txt = "Selected" if selected else ("Arb locked" if is_arb else "No lock")
     profit_class = "green" if is_arb else "red"
     profit_label = "Guaranteed profit" if is_arb else "Worst-case loss"
     outcome_a = f"If the event resolves {poly_side}, Polymarket pays ${guaranteed_payout:,.2f}."
@@ -2799,6 +3003,14 @@ def _render_arb_strategy_card(
         """,
         unsafe_allow_html=True,
     )
+    if st.button(
+        "Showing on main screen" if selected else "Show this strategy on main screen",
+        key=f"arb_strategy_select_{strategy['key']}",
+        use_container_width=True,
+        type="primary" if selected else "secondary",
+    ):
+        st.session_state.arb_selected_strategy = strategy["key"]
+        st.rerun()
 
 
 def _render_arb_split(
@@ -2917,14 +3129,22 @@ def render_risk_free_arbs() -> None:
     odds_fmt = get_odds_format()
     poly_options = {row["id"]: row["Question"] for _, row in poly_priced.iterrows()}
     poly_prices = {
-        row["id"]: f"YES {format_odds_display(float(row['Yes Price']), odds_fmt)} · "
-        f"NO {format_odds_display(float(row['No Price']), odds_fmt)}"
+        row["id"]: _book_price_hint(
+            "Polymarket",
+            float(row["Yes Price"]),
+            float(row["No Price"]),
+            odds_fmt,
+        )
         for _, row in poly_priced.iterrows()
     }
     kalshi_options = {row["ticker"]: row["Title"] for _, row in kalshi_priced.iterrows()}
     kalshi_prices = {
-        row["ticker"]: f"YES {format_odds_display(float(row['Kalshi YES Cost']), odds_fmt)} · "
-        f"NO {format_odds_display(float(row['Kalshi NO Cost']), odds_fmt)}"
+        row["ticker"]: _book_price_hint(
+            "Kalshi",
+            float(row["Kalshi YES Cost"]),
+            float(row["Kalshi NO Cost"]),
+            odds_fmt,
+        )
         for _, row in kalshi_priced.iterrows()
     }
 
@@ -2960,24 +3180,52 @@ def render_risk_free_arbs() -> None:
     kalshi_yes = float(kalshi_row["Kalshi YES Cost"])
     kalshi_no = float(kalshi_row["Kalshi NO Cost"])
 
+    strategies = [
+        _build_arb_strategy(
+            "strategy_a",
+            "Strategy A - Poly YES + Kalshi NO",
+            "YES",
+            poly_yes,
+            "NO",
+            kalshi_no,
+            arb_stake,
+        ),
+        _build_arb_strategy(
+            "strategy_b",
+            "Strategy B - Poly NO + Kalshi YES",
+            "NO",
+            poly_no,
+            "YES",
+            kalshi_yes,
+            arb_stake,
+        ),
+    ]
+    pair_key = f"{poly_id}::{kalshi_ticker}"
+    valid_strategy_keys = {str(item["key"]) for item in strategies}
+    if (
+        st.session_state.get("arb_selected_pair") != pair_key
+        or st.session_state.get("arb_selected_strategy") not in valid_strategy_keys
+    ):
+        best = _best_arb_strategy(strategies)
+        st.session_state.arb_selected_pair = pair_key
+        st.session_state.arb_selected_strategy = best["key"]
+
+    selected_key = st.session_state.get("arb_selected_strategy")
+    selected_strategy = next(
+        (item for item in strategies if item["key"] == selected_key),
+        _best_arb_strategy(strategies),
+    )
+    _render_selected_arb_spotlight(selected_strategy, odds_fmt)
     _render_cross_book_odds(poly_row, kalshi_row, odds_fmt)
 
     st.markdown('<p class="pq-section-label">Arb strategies</p>', unsafe_allow_html=True)
 
-    _render_arb_strategy_card(
-        "Strategy A — Poly YES + Kalshi NO",
-        "YES", poly_yes,
-        "NO", kalshi_no,
-        arb_stake,
-        odds_fmt,
-    )
-    _render_arb_strategy_card(
-        "Strategy B — Poly NO + Kalshi YES",
-        "NO", poly_no,
-        "YES", kalshi_yes,
-        arb_stake,
-        odds_fmt,
-    )
+    for strategy in strategies:
+        _render_arb_strategy_card(
+            strategy,
+            odds_fmt,
+            selected=strategy["key"] == selected_strategy["key"],
+        )
 
     cost_a = poly_yes + kalshi_no
     cost_b = poly_no + kalshi_yes
