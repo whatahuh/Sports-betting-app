@@ -305,6 +305,13 @@ LEDGER_COLUMNS = [
     "_status_raw",
 ]
 
+# Official API key pages — surfaced in The Ledger setup UI
+KALSHI_KEYS_PAGE = "https://kalshi.com/account/profile"
+KALSHI_KEYS_DOCS = "https://docs.kalshi.com/getting_started/api_keys"
+POLYMARKET_AUTH_DOCS = "https://docs.polymarket.com/api-reference/authentication"
+POLYMARKET_TRADING_DOCS = "https://docs.polymarket.com/trading/overview"
+STREAMLIT_SECRETS_DOCS = "https://docs.streamlit.io/develop/concepts/connections/secrets-management"
+
 
 def _ledger_credentials() -> dict[str, bool]:
     return {
@@ -2032,15 +2039,85 @@ def _build_calendar_html(daily_pnl: dict[date, float], year: int, month: int) ->
     )
 
 
+def _render_api_keys_setup_panel(creds: dict[str, bool]) -> None:
+    """In-app guide with direct links to obtain Kalshi + Polymarket API credentials."""
+    missing_k = not creds["kalshi"]
+    missing_p = not creds["polymarket"]
+
+    if missing_k or missing_p:
+        st.markdown("#### 🔑 Connect your accounts")
+        if missing_k and missing_p:
+            st.caption("Add at least one platform to start syncing fills into The Ledger.")
+        elif missing_k:
+            st.success("Polymarket connected ✓ — add Kalshi below to sync both books.")
+        else:
+            st.success("Kalshi connected ✓ — add Polymarket below to sync both books.")
+
+    with st.expander(
+        "Where do I get API keys?",
+        expanded=missing_k or missing_p,
+    ):
+        k1, k2 = st.columns(2)
+
+        with k1:
+            st.markdown("**Kalshi**")
+            if creds["kalshi"]:
+                st.caption("✓ Credentials detected")
+            else:
+                st.markdown(
+                    f"1. Open **[Kalshi → Account → API Keys]({KALSHI_KEYS_PAGE})**\n"
+                    "2. Click **Create New API Key**\n"
+                    "3. Save your **Key ID** → `KALSHI_API_KEY_ID`\n"
+                    "4. Save the **private key** (PEM) → `KALSHI_PRIVATE_KEY`\n\n"
+                    f"📖 [Kalshi API key docs]({KALSHI_KEYS_DOCS})"
+                )
+
+        with k2:
+            st.markdown("**Polymarket**")
+            if creds["polymarket"]:
+                st.caption("✓ Credentials detected")
+            else:
+                st.markdown(
+                    "1. Sign in to Polymarket with your wallet\n"
+                    "2. Derive **L2 API credentials** (apiKey, secret, passphrase)\n"
+                    f"   → [Authentication guide]({POLYMARKET_AUTH_DOCS})\n"
+                    "3. Add to `.env`:\n"
+                    "   - `POLYMARKET_API_KEY`\n"
+                    "   - `POLYMARKET_API_SECRET`\n"
+                    "   - `POLYMARKET_API_PASSPHRASE`\n"
+                    "   - `POLYMARKET_WALLET_ADDRESS` (optional)\n\n"
+                    f"📖 [Trading & API overview]({POLYMARKET_TRADING_DOCS})"
+                )
+
+        st.markdown("---")
+        st.markdown(
+            "**Local run:** create a `.env` file in the project root (already git-ignored).\n\n"
+            f"**Streamlit Cloud:** paste the same variables under "
+            f"**App settings → Secrets** — "
+            f"[Streamlit secrets docs]({STREAMLIT_SECRETS_DOCS})"
+        )
+
+        st.code(
+            """# .env example
+KALSHI_API_KEY_ID=your_kalshi_key_id
+KALSHI_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----"
+
+POLYMARKET_API_KEY=your_api_key
+POLYMARKET_API_SECRET=your_base64_secret
+POLYMARKET_API_PASSPHRASE=your_passphrase
+POLYMARKET_WALLET_ADDRESS=0xYourPolygonAddress""",
+            language="bash",
+        )
+
+
 def render_ledger() -> None:
     st.markdown("### 📒 The Ledger")
 
     creds = _ledger_credentials()
+    _render_api_keys_setup_panel(creds)
+
     if not creds["kalshi"] and not creds["polymarket"]:
-        st.warning(
-            "Connect your accounts: add API keys to a local `.env` file "
-            "(see developer comment at top of app.py). Ledger syncs once credentials are set."
-        )
+        st.info("The Ledger will populate automatically once API keys are saved and you click **Sync Fills**.")
 
     if st.button("↻ Sync Fills", key="refresh_ledger"):
         fetch_unified_ledger.clear()
