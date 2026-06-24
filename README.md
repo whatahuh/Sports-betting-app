@@ -1,6 +1,9 @@
 # POLY-QUANT
 
-Streamlit terminal for Polymarket + Kalshi: value plays, explore, bet audit, sentiment, arbs, ledger.
+A modern Streamlit intelligence terminal for Polymarket + Kalshi. It opens on a
+data-driven **Dashboard** (live market stats, category breakdowns, and a guided
+how-to-use walkthrough) and includes: value plays, explore, bet check, sentiment,
+risk-free arbs, and a performance ledger.
 
 ## Run locally
 
@@ -15,7 +18,7 @@ streamlit run app.py
 2. **Branch:** `main`
 3. **Main file:** `app.py`
 4. After each push to `main`, open the app → **⋮ → Reboot app**
-5. Confirm the header shows the latest **Build** tag (e.g. `2.2.0-arb-autosuggest`)
+5. Confirm the brand bar shows the latest **Build** chip (e.g. `4.0.0-modern-ui`)
 
 ## Current build
 
