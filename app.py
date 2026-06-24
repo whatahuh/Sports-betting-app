@@ -3089,13 +3089,13 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* Minimize top padding of the main container */
+    /* Zero out default margins and optimize layout width */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 1rem !important;
-        max-width: 95% !important;
+        max-width: 96% !important;
     }
-    /* Hide the default Streamlit header bar decoration */
+    /* Hide unpolished global structural boilerplate elements */
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -3115,7 +3115,7 @@ st.markdown("""
         background-color: #0E121A !important;
         border: 1px solid #1F2937 !important;
         border-radius: 6px !important;
-        padding: 10px 15px !important;
+        padding: 12px 16px !important;
     }
     div.stExpander {
         background-color: #0A0C10 !important;
