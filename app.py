@@ -1091,7 +1091,30 @@ def _inject_global_css() -> None:
                 max-width: 100%;
             }
 
-            /* Header */
+            /* Compact top bar (replaces bulky hero) */
+            .pq-topbar {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 0.35rem 0.75rem;
+                padding: 0.15rem 0 0.5rem;
+                margin-bottom: 0.35rem;
+                border-bottom: 1px solid #21262d;
+            }
+            .pq-topbar-brand {
+                font-size: 1rem;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+                color: #ffffff;
+            }
+            .pq-topbar-meta {
+                font-size: 0.72rem;
+                font-weight: 500;
+                color: #8b949e;
+            }
+
+            /* Header (legacy hero — unused) */
             .pq-hero {
                 background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
                 border: 1px solid #21262d;
@@ -2697,41 +2720,40 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+st.markdown("""
+    <style>
+    /* Minimize top padding of the main container */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        max-width: 95% !important;
+    }
+    /* Hide the default Streamlit header bar decoration */
+    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
+
 _inject_global_css()
 _init_session()
 
 st.markdown(
     f"""
-    <div class="pq-hero">
-        <h1>POLY-QUANT</h1>
-        <p>Prediction-market intelligence · Polymarket + Kalshi ·
-        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></p>
+    <div class="pq-topbar">
+        <span class="pq-topbar-brand">POLY-QUANT</span>
+        <span class="pq-topbar-meta">Polymarket · Kalshi ·
+        <span class="pq-build-tag">Build {html.escape(APP_BUILD)}</span></span>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-with st.expander("App not updating after deploy?", expanded=False):
-    st.markdown(
-        f"""
-        **You should see Build `{APP_BUILD}` in the header above.**
-
-        1. Streamlit Cloud → your app → **⋮ Manage app** → **Reboot app**
-        2. Confirm **Branch = `main`** and **Main file = `app.py`**
-        3. Hard-refresh your browser (pull down on mobile)
-
-        If the build tag is still old, the cloud app is not pulling latest `main` yet.
-        """
-    )
-
-tool_l, tool_r = st.columns([2, 1])
+tool_l, tool_r = st.columns([3, 1])
 with tool_l:
     render_global_search_bar()
 with tool_r:
-    st.markdown('<p class="pq-section-label">Odds format</p>', unsafe_allow_html=True)
-    st.markdown('<div class="pq-odds-bar">', unsafe_allow_html=True)
     render_odds_format_toggle()
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def main() -> None:
