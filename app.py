@@ -811,7 +811,7 @@ def _render_app_header() -> None:
                 <span class="pq-brand-mark">PQ</span>
                 <div>
                     <span class="pq-brand-name">PolyQuant</span>
-                    <span class="pq-brand-tag">Polymarket · Kalshi</span>
+                    <span class="pq-brand-tag">Polymarket · Kalshi · v2 UI</span>
                 </div>
             </div>
         </div>
@@ -2068,5 +2068,4 @@ def main() -> None:
         render_ledger()
 
 
-if __name__ == "__main__":
-    main()
+main()
