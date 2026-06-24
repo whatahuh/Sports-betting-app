@@ -59,7 +59,7 @@ REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
 APP_BUILD = "4.0.0-professional-dashboard"
-GIT_SHA = "ui-overhaul"
+GIT_SHA = "182fab2"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
