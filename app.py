@@ -59,7 +59,7 @@ REQUEST_TIMEOUT = 20
 CACHE_TTL = 60
 USER_AGENT = "POLY-QUANT-v1/2.0 (+tactical-terminal)"
 APP_BUILD = "3.1.0-arb-detail"
-GIT_SHA = "pending"
+GIT_SHA = "a23d2cf"
 
 MIN_VOLUME = 5_000.0
 STRIKE_LO = 0.70
