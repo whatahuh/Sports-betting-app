@@ -573,6 +573,30 @@ def _ledger_daily_pnl(ledger: pd.DataFrame) -> dict[date, float]:
     return {k: float(v) for k, v in grouped.items() if pd.notna(k)}
 
 
+def _aggregate_daily_performance(ledger: pd.DataFrame) -> dict[date, float]:
+    """Presentation lookup: net win/loss per settlement day."""
+    if ledger.empty:
+        return {}
+    perf = ledger[ledger["Status"].isin(["WON", "LOST"])].copy()
+    if perf.empty:
+        return {}
+    perf["settlement_date"] = pd.to_datetime(perf["Date"], errors="coerce").dt.date
+    daily_perf = perf.groupby("settlement_date")["Net Return $"].sum()
+    return {k: float(v) for k, v in daily_perf.items() if pd.notna(k)}
+
+
+def _ledger_daily_bet_counts(ledger: pd.DataFrame) -> dict[date, int]:
+    """Presentation lookup: settled bet count per day."""
+    if ledger.empty:
+        return {}
+    settled = ledger[ledger["Status"].isin(["WON", "LOST"])].copy()
+    if settled.empty:
+        return {}
+    settled["settlement_date"] = pd.to_datetime(settled["Date"], errors="coerce").dt.date
+    counts = settled.groupby("settlement_date").size()
+    return {k: int(v) for k, v in counts.items() if pd.notna(k)}
+
+
 def _ledger_kpis(ledger: pd.DataFrame) -> tuple[float, str, float]:
     today = datetime.now(timezone.utc).date()
     month_start = today.replace(day=1)
@@ -1810,7 +1834,111 @@ def _inject_global_css() -> None:
                 font-weight: 700;
             }
 
-            /* Ledger calendar flexbox */
+            /* Pikkit-style performance calendar */
+            .pq-perf-calendar {
+                background: #0E121A;
+                border: 1px solid #1F2937;
+                border-radius: 10px;
+                padding: 0.85rem 0.95rem 1rem;
+                margin: 0.65rem 0 1rem;
+            }
+            .pq-perf-cal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                margin-bottom: 0.65rem;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+            }
+            .pq-perf-cal-title {
+                font-size: 0.95rem;
+                font-weight: 800;
+                color: #f0f2f5;
+                letter-spacing: -0.02em;
+            }
+            .pq-perf-cal-sub {
+                font-size: 0.72rem;
+                font-weight: 600;
+                color: #8b949e;
+            }
+            .pq-perf-cal-month-pnl {
+                font-size: 0.82rem;
+                font-weight: 800;
+            }
+            .pq-perf-cal-month-pnl.pos { color: #3fb950; }
+            .pq-perf-cal-month-pnl.neg { color: #f85149; }
+            .pq-perf-cal-month-pnl.flat { color: #8b949e; }
+            .pq-perf-cal-grid {
+                display: grid;
+                grid-template-columns: repeat(7, minmax(0, 1fr));
+                gap: 6px;
+            }
+            .pq-perf-cal-head {
+                text-align: center;
+                font-size: 0.62rem;
+                font-weight: 800;
+                color: #6e7681;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                padding: 0.2rem 0 0.35rem;
+            }
+            .pq-perf-cal-cell {
+                min-height: 58px;
+                border-radius: 8px;
+                border: 1px solid #1F2937;
+                background: #0A0C10;
+                padding: 0.35rem 0.3rem 0.3rem;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                align-items: stretch;
+            }
+            .pq-perf-cal-cell.pq-perf-empty {
+                background: transparent;
+                border-color: transparent;
+                min-height: 0;
+                padding: 0;
+            }
+            .pq-perf-cal-cell.pq-perf-today {
+                box-shadow: 0 0 0 2px #58a6ff;
+            }
+            .pq-perf-cal-cell.pq-perf-win {
+                background: rgba(63,185,80,0.18);
+                border-color: rgba(63,185,80,0.45);
+            }
+            .pq-perf-cal-cell.pq-perf-loss {
+                background: rgba(248,81,73,0.14);
+                border-color: rgba(248,81,73,0.4);
+            }
+            .pq-perf-cal-cell.pq-perf-flat {
+                background: #161b22;
+                border-color: #30363d;
+            }
+            .pq-perf-cal-day {
+                font-size: 0.62rem;
+                font-weight: 700;
+                color: #8b949e;
+                line-height: 1;
+            }
+            .pq-perf-cal-pnl {
+                font-size: 0.72rem;
+                font-weight: 800;
+                text-align: center;
+                line-height: 1.1;
+                margin-top: 0.15rem;
+            }
+            .pq-perf-cal-pnl.pos { color: #3fb950; }
+            .pq-perf-cal-pnl.neg { color: #f85149; }
+            .pq-perf-cal-pnl.flat { color: #c9d1d9; }
+            .pq-perf-cal-count {
+                font-size: 0.58rem;
+                font-weight: 600;
+                color: #6e7681;
+                text-align: center;
+                margin-top: 0.1rem;
+            }
+
+            /* Ledger calendar flexbox (legacy) */
             .pq-calendar-wrap { margin: 0.75rem 0 1rem; }
             .pq-cal-grid {
                 display: flex;
@@ -2696,40 +2824,128 @@ def render_risk_free_arbs() -> None:
         )
 
 
-def _build_calendar_html(daily_pnl: dict[date, float], year: int, month: int) -> str:
+def _build_performance_calendar_html(
+    daily_perf: dict[date, float],
+    daily_counts: dict[date, int],
+    year: int,
+    month: int,
+    today: date,
+) -> str:
+    """Pikkit-style month grid with daily net P&L tiles."""
     weekday, num_days = calendar.monthrange(year, month)
-    heads = "".join(f'<div class="pq-cal-head">{d}</div>' for d in ("M", "T", "W", "T", "F", "S", "S"))
+    heads = "".join(
+        f'<div class="pq-perf-cal-head">{html.escape(d)}</div>'
+        for d in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    )
+
+    month_total = 0.0
     cells: list[str] = []
     for _ in range(weekday):
-        cells.append('<div class="pq-cal-cell pq-cal-neutral"></div>')
+        cells.append('<div class="pq-perf-cal-cell pq-perf-empty"></div>')
+
     for day in range(1, num_days + 1):
         d = date(year, month, day)
-        pnl = daily_pnl.get(d)
+        pnl = daily_perf.get(d)
+        count = daily_counts.get(d, 0)
+        today_cls = " pq-perf-today" if d == today else ""
+
         if pnl is None:
             cells.append(
-                f'<div class="pq-cal-cell pq-cal-neutral"><span class="pq-cal-day">{day}</span>'
-                f'<span class="pq-cal-dash">-</span></div>'
+                f'<div class="pq-perf-cal-cell{today_cls}">'
+                f'<span class="pq-perf-cal-day">{day}</span></div>'
             )
         elif pnl > 0:
+            month_total += pnl
+            count_line = (
+                f'<span class="pq-perf-cal-count">{count} bet{"s" if count != 1 else ""}</span>'
+                if count else ""
+            )
             cells.append(
-                f'<div class="pq-cal-cell pq-cal-win"><span class="pq-cal-day">{day}</span>'
-                f'<span class="pq-cal-pnl pos">+${pnl:.2f}</span></div>'
+                f'<div class="pq-perf-cal-cell pq-perf-win{today_cls}">'
+                f'<span class="pq-perf-cal-day">{day}</span>'
+                f'<span class="pq-perf-cal-pnl pos">+${pnl:,.0f}</span>{count_line}</div>'
             )
         elif pnl < 0:
+            month_total += pnl
+            count_line = (
+                f'<span class="pq-perf-cal-count">{count} bet{"s" if count != 1 else ""}</span>'
+                if count else ""
+            )
             cells.append(
-                f'<div class="pq-cal-cell pq-cal-loss"><span class="pq-cal-day">{day}</span>'
-                f'<span class="pq-cal-pnl neg">-${abs(pnl):.2f}</span></div>'
+                f'<div class="pq-perf-cal-cell pq-perf-loss{today_cls}">'
+                f'<span class="pq-perf-cal-day">{day}</span>'
+                f'<span class="pq-perf-cal-pnl neg">-${abs(pnl):,.0f}</span>{count_line}</div>'
             )
         else:
-            cells.append(
-                f'<div class="pq-cal-cell pq-cal-neutral"><span class="pq-cal-day">{day}</span>'
-                f'<span class="pq-cal-dash">-</span></div>'
+            count_line = (
+                f'<span class="pq-perf-cal-count">{count} bet{"s" if count != 1 else ""}</span>'
+                if count else ""
             )
-    grid = "".join(cells)
+            cells.append(
+                f'<div class="pq-perf-cal-cell pq-perf-flat{today_cls}">'
+                f'<span class="pq-perf-cal-day">{day}</span>'
+                f'<span class="pq-perf-cal-pnl flat">$0</span>{count_line}</div>'
+            )
+
+    month_cls = "pos" if month_total > 0 else "neg" if month_total < 0 else "flat"
+    month_lbl = f"${month_total:+,.0f}" if month_total else "$0"
     month_name = datetime(year, month, 1).strftime("%B %Y")
-    return (
-        f'<div class="pq-calendar-wrap"><p class="pq-section-label">{month_name}</p>'
-        f'<div class="pq-cal-grid">{heads}{grid}</div></div>'
+    grid = "".join(cells)
+
+    return f"""
+    <div class="pq-perf-calendar">
+        <div class="pq-perf-cal-header">
+            <div>
+                <div class="pq-perf-cal-title">{html.escape(month_name)}</div>
+                <div class="pq-perf-cal-sub">Daily settled P&amp;L</div>
+            </div>
+            <div class="pq-perf-cal-month-pnl {month_cls}">Month: {month_lbl}</div>
+        </div>
+        <div class="pq-perf-cal-grid">{heads}{grid}</div>
+    </div>
+    """
+
+
+def _render_performance_calendar(ledger: pd.DataFrame) -> None:
+    """Performance Ledger calendar panel (presentation only)."""
+    daily_perf = _aggregate_daily_performance(ledger)
+    daily_counts = _ledger_daily_bet_counts(ledger)
+    today = datetime.now(timezone.utc).date()
+
+    if "ledger_cal_year" not in st.session_state:
+        st.session_state.ledger_cal_year = today.year
+        st.session_state.ledger_cal_month = today.month
+
+    year = int(st.session_state.ledger_cal_year)
+    month = int(st.session_state.ledger_cal_month)
+
+    st.markdown('<p class="pq-section-label">Performance calendar</p>', unsafe_allow_html=True)
+    nav_l, nav_m, nav_r = st.columns([1, 2, 1])
+    with nav_l:
+        if st.button("←", key="ledger_cal_prev"):
+            if month == 1:
+                st.session_state.ledger_cal_month = 12
+                st.session_state.ledger_cal_year = year - 1
+            else:
+                st.session_state.ledger_cal_month = month - 1
+            st.rerun()
+    with nav_m:
+        st.markdown(
+            f'<p class="pq-page-indicator">{datetime(year, month, 1).strftime("%B %Y")}</p>',
+            unsafe_allow_html=True,
+        )
+    with nav_r:
+        if st.button("→", key="ledger_cal_next"):
+            if month == 12:
+                st.session_state.ledger_cal_month = 1
+                st.session_state.ledger_cal_year = year + 1
+            else:
+                st.session_state.ledger_cal_month = month + 1
+            st.rerun()
+
+    st.markdown(
+        _build_performance_calendar_html(daily_perf, daily_counts, year, month, today),
+        unsafe_allow_html=True,
     )
 
 
@@ -2831,9 +3047,7 @@ def render_ledger() -> None:
     k2.metric("Monthly W/L Record", wl_record)
     k3.metric("Total Capital at Risk", f"${capital_at_risk:,.2f}")
 
-    now = datetime.now(timezone.utc)
-    daily_pnl = _ledger_daily_pnl(ledger)
-    st.markdown(_build_calendar_html(daily_pnl, now.year, now.month), unsafe_allow_html=True)
+    _render_performance_calendar(ledger)
 
     if ledger.empty:
         st.caption("No filled orders ingested yet.")
